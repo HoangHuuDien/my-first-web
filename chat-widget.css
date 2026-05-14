@@ -265,6 +265,104 @@
   cursor: not-allowed;
 }
 
+.tt-chat-lead-section {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--tt-chat-border);
+  background: linear-gradient(180deg, #ece9e3 0%, #ebe8e2 100%);
+}
+
+.tt-chat-lead-toggle {
+  width: 100%;
+  border: 1px solid var(--tt-chat-border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  background: #fff;
+  color: var(--tt-chat-text);
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.tt-chat-lead-toggle:hover {
+  border-color: var(--tt-chat-accent);
+  background: #faf9f6;
+}
+
+.tt-chat-lead-fields {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tt-chat-lead-fields[hidden] {
+  display: none !important;
+}
+
+.tt-chat-lead-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tt-chat-muted);
+}
+
+.tt-chat-lead-input,
+.tt-chat-lead-textarea {
+  font-size: 15px;
+  font-family: inherit;
+  border: 1px solid var(--tt-chat-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  color: var(--tt-chat-text);
+  outline: none;
+}
+
+.tt-chat-lead-input:focus,
+.tt-chat-lead-textarea:focus {
+  border-color: var(--tt-chat-accent);
+  box-shadow: 0 0 0 3px var(--tt-chat-accent-soft);
+}
+
+.tt-chat-lead-textarea {
+  resize: vertical;
+  min-height: 56px;
+}
+
+.tt-chat-lead-submit {
+  border: none;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(180deg, var(--tt-chat-accent) 0%, #9a8356 100%);
+  box-shadow: 0 4px 12px rgba(181, 154, 102, 0.35);
+}
+
+.tt-chat-lead-submit:hover {
+  filter: brightness(1.04);
+}
+
+.tt-chat-lead-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tt-chat-lead-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--tt-chat-muted);
+  min-height: 1.2em;
+}
+
 @media (max-width: 640px) {
   #thuan-thien-chat-root {
     right: 12px;

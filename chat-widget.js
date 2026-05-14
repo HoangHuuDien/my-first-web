@@ -1,9 +1,14 @@
 /**
  * Chat Thuận Thiên — tư vấn qua OpenRouter (model mặc định: Claude Sonnet 4.5; đổi bằng OPENROUTER_MODEL trên Vercel).
  * Cần deploy lên Vercel + OPENROUTER_API_KEY. API /api/chat đọc data/SYSTEM_PROMPT.md, data/brandvoice.md, data/sales_script.md.
+ *
+ * Lead → Make.com: POST JSON tới webhook (URL công khai trong bundle — nên giới hạn / xác thực phía Make nếu bị spam).
  */
 (function () {
   "use strict";
+
+  /** Webhook Make.com — nhận lead + toàn bộ hội thoại (JSON). */
+  var MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/20n86h5h51cd37v91clfwjeukns6v7zj";
 
   var GREETING =
     "Chào bạn, mình là trợ lý Thuận Thiên, bạn quan tâm điều gì, hãy đặt câu hỏi cho mình nhé.";
@@ -25,6 +30,15 @@
       '<div><div class="tt-chat-header-title">Thuận Thiên</div><div class="tt-chat-header-sub">Tư vấn AI — giọng Thanh A; không thay tư vấn từng ca 1-1</div></div>' +
       '<button type="button" class="tt-chat-close" aria-label="Đóng chat">×</button></div>' +
       '<div class="tt-chat-messages" id="tt-chat-messages"></div>' +
+      '<div class="tt-chat-lead-section" id="tt-chat-lead-section">' +
+      '<button type="button" class="tt-chat-lead-toggle" id="tt-chat-lead-toggle" aria-expanded="false">Để lại Tên · SĐT · Nhu cầu — team liên hệ</button>' +
+      '<div class="tt-chat-lead-fields" id="tt-chat-lead-fields" hidden>' +
+      '<label class="tt-chat-lead-label">Tên<input type="text" class="tt-chat-lead-input" id="tt-lead-name" maxlength="120" autocomplete="name" placeholder="Họ tên"></label>' +
+      '<label class="tt-chat-lead-label">SĐT<input type="tel" class="tt-chat-lead-input" id="tt-lead-phone" maxlength="20" autocomplete="tel" placeholder="VD: 0901234567"></label>' +
+      '<label class="tt-chat-lead-label">Nhu cầu<textarea class="tt-chat-lead-textarea" id="tt-lead-need" rows="2" maxlength="500" placeholder="Bạn cần gì (quẻ, sách, bát tự…)"></textarea></label>' +
+      '<button type="button" class="tt-chat-lead-submit" id="tt-lead-submit">Gửi cho team</button>' +
+      '<p class="tt-chat-lead-hint" id="tt-lead-hint" role="status"></p>' +
+      "</div></div>" +
       '<div class="tt-chat-input-row">' +
       '<textarea class="tt-chat-input" id="tt-chat-input" rows="3" placeholder="Nhắn tin ở đây…" maxlength="800"></textarea>' +
       '<button type="button" class="tt-chat-send" id="tt-chat-send" aria-label="Gửi">➤</button>' +
@@ -112,6 +126,115 @@
     return false;
   }
 
+  function randomId() {
+    return "tt_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+  }
+
+  /** Chuẩn hóa SĐT VN cơ bản; trả null nếu không thấy. */
+  function extractVnPhone(s) {
+    var t = String(s || "").replace(/[\s.\-]/g, "");
+    var m = t.match(/(?:^|[^\d])(0[35789]\d{8})(?:[^\d]|$)/);
+    if (m) return m[1];
+    m = t.match(/(?:^|[^\d])\+?84([35789]\d{8})(?:[^\d]|$)/);
+    if (m) return "0" + m[1];
+    return null;
+  }
+
+  /**
+   * HOT LEAD: ý mua / đăng ký / liên hệ, hoặc để lại SĐT trong chat,
+   * hoặc từ khóa chốt nhanh (bổ sung ngoài INTEREST_KEYS).
+   */
+  function isHotLead(text) {
+    if (detectInterest(text)) return true;
+    if (extractVnPhone(text)) return true;
+    var t = (text || "").toLowerCase();
+    var extra = [
+      "hen lich",
+      "hẹn lịch",
+      "dat lich",
+      "đặt lịch",
+      "lien he ngay",
+      "liên hệ ngay",
+      "goi cho",
+      "gọi cho",
+      "xin tu van",
+      "xin tư vấn",
+      "muon gap",
+      "muốn gặp",
+      "chot don",
+      "chốt đơn",
+      "bao gia roi mua",
+      "báo giá rồi mua",
+      "em lay",
+      "em lấy",
+      "cho em slot",
+      "con slot",
+      "còn slot"
+    ];
+    var j;
+    for (j = 0; j < extra.length; j++) {
+      if (t.indexOf(extra[j]) !== -1) return true;
+    }
+    return false;
+  }
+
+  function transcriptPlainFromLog(log) {
+    var lines = [];
+    var i;
+    for (i = 0; i < log.length; i++) {
+      var e = log[i];
+      var who = e.role === "user" ? "Khách" : "Bot";
+      lines.push(who + ": " + String(e.content || "").trim());
+    }
+    return lines.join("\n\n");
+  }
+
+  /**
+   * POST JSON sạch sang Make.com (Custom Webhook).
+   * payload: { event_type, occurred_at, page_url, session_id, customer, conversation, transcript_plain, hot_lead_reason? }
+   */
+  function postMakeWebhook(payload) {
+    return fetch(MAKE_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify(payload)
+    }).catch(function (err) {
+      console.warn("[Thuận Thiên chat] Make webhook:", err);
+    });
+  }
+
+  function buildMakePayload(eventType, sessionId, leadLog, customer, hotReason) {
+    var pageUrl = "";
+    try {
+      if (typeof window !== "undefined" && window.location && window.location.href) {
+        pageUrl = window.location.href;
+      }
+    } catch (e) {}
+    var conv = [];
+    var k;
+    for (k = 0; k < leadLog.length; k++) {
+      conv.push({ role: leadLog[k].role, content: String(leadLog[k].content || "") });
+    }
+    var payload = {
+      source: "thuan-thien-chat-widget",
+      event_type: eventType,
+      occurred_at: new Date().toISOString(),
+      page_url: pageUrl,
+      session_id: sessionId,
+      customer: {
+        name: String((customer && customer.name) || "").trim(),
+        phone: String((customer && customer.phone) || "").trim(),
+        need: String((customer && customer.need) || "").trim()
+      },
+      conversation: {
+        messages: conv
+      },
+      transcript_plain: transcriptPlainFromLog(leadLog)
+    };
+    if (hotReason) payload.hot_lead_reason = String(hotReason);
+    return payload;
+  }
+
   function wireWidget(root) {
     var launcher = root.querySelector(".tt-chat-launcher");
     var panel = root.querySelector(".tt-chat-panel");
@@ -125,6 +248,26 @@
     var ctaShown = false;
     /** Lịch sử gửi lên API: user | assistant */
     var chatMessages = [];
+    /** Bản sao hội thoại cho Make (có lời chào đầu). */
+    var leadLog = [];
+    var sessionId = randomId();
+    var hotLeadSent = false;
+
+    var leadToggle = root.querySelector("#tt-chat-lead-toggle");
+    var leadFields = root.querySelector("#tt-chat-lead-fields");
+    var leadName = root.querySelector("#tt-lead-name");
+    var leadPhone = root.querySelector("#tt-lead-phone");
+    var leadNeed = root.querySelector("#tt-lead-need");
+    var leadSubmit = root.querySelector("#tt-lead-submit");
+    var leadHint = root.querySelector("#tt-lead-hint");
+
+    function pushLead(role, content) {
+      leadLog.push({
+        role: role,
+        content: String(content || ""),
+        ts: new Date().toISOString()
+      });
+    }
 
     var apiUrl = (function () {
       try {
@@ -145,6 +288,7 @@
       root.classList.add("tt-chat-open");
       if (!openedOnce) {
         openedOnce = true;
+        pushLead("assistant", GREETING);
         appendBubble(messages, GREETING, "bot");
       }
       setTimeout(function () {
@@ -175,6 +319,7 @@
       input.value = "";
       appendBubble(messages, text, "user");
       userMsgCount += 1;
+      pushLead("user", text);
 
       chatMessages.push({ role: "user", content: text });
       while (chatMessages.length > 40) {
@@ -203,19 +348,38 @@
           if (!result.ok) {
             var err = (result.data && result.data.error) || "Không kết nối được máy chủ chat.";
             appendBubble(messages, err, "bot");
+            pushLead("assistant", "[Lỗi máy chủ] " + err);
             chatMessages.pop();
             return;
           }
           var reply = (result.data && result.data.reply) || "";
           if (!reply) {
             appendBubble(messages, "Mình chưa nhận được câu trả lời — bạn thử gửi lại giúp mình nhé.", "bot");
+            pushLead("assistant", "[Không có reply]");
             chatMessages.pop();
             return;
           }
           appendBubble(messages, reply, "bot");
+          pushLead("assistant", reply);
           chatMessages.push({ role: "assistant", content: reply });
           while (chatMessages.length > 40) {
             chatMessages.shift();
+          }
+          if (isHotLead(text) && !hotLeadSent) {
+            hotLeadSent = true;
+            var reasonParts = [];
+            if (detectInterest(text)) reasonParts.push("interest_keywords");
+            if (extractVnPhone(text)) reasonParts.push("phone_in_message");
+            if (reasonParts.length === 0) reasonParts.push("hot_intent");
+            postMakeWebhook(
+              buildMakePayload(
+                "hot_lead",
+                sessionId,
+                leadLog,
+                { name: "", phone: extractVnPhone(text) || "", need: "" },
+                reasonParts.join(",")
+              )
+            );
           }
         })
         .catch(function () {
@@ -227,6 +391,7 @@
             "Mình không gọi được API (có thể bạn đang mở file từ máy, hoặc chưa deploy Vercel / thiếu OPENROUTER_API_KEY). Hãy mở trang đã deploy trên Vercel rồi thử lại.",
             "bot"
           );
+          pushLead("assistant", "[Lỗi mạng / API]");
           chatMessages.pop();
         })
         .finally(function () {
@@ -268,6 +433,62 @@
         first.focus();
       }
     });
+
+    if (leadToggle && leadFields) {
+      leadToggle.addEventListener("click", function () {
+        var open = !!leadFields.hidden;
+        leadFields.hidden = !open;
+        leadToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    }
+
+    function normalizePhoneDigits(p) {
+      var x = String(p || "").trim().replace(/[\s.\-]/g, "");
+      if (x.indexOf("+84") === 0) x = "0" + x.slice(3);
+      else if (x.indexOf("84") === 0 && x.length >= 10) x = "0" + x.slice(2);
+      return x;
+    }
+
+    if (leadSubmit && leadName && leadPhone && leadNeed && leadHint) {
+      leadSubmit.addEventListener("click", function () {
+        var name = (leadName.value || "").trim();
+        var phoneRaw = normalizePhoneDigits(leadPhone.value);
+        var need = (leadNeed.value || "").trim();
+        leadHint.textContent = "";
+        if (name.length < 2) {
+          leadHint.textContent = "Bạn cho mình họ tên (ít nhất 2 ký tự) nhé.";
+          return;
+        }
+        if (!/^0[35789]\d{8}$/.test(phoneRaw)) {
+          leadHint.textContent = "SĐT chưa đúng dạng (10 số, đầu 03/05/07/08/09).";
+          return;
+        }
+        if (need.length < 3) {
+          leadHint.textContent = "Bạn ghi giúp nhu cầu ngắn gọn (ít nhất vài chữ).";
+          return;
+        }
+        leadSubmit.disabled = true;
+        postMakeWebhook(
+          buildMakePayload(
+            "lead_form",
+            sessionId,
+            leadLog,
+            { name: name, phone: phoneRaw, need: need },
+            null
+          )
+        ).finally(function () {
+          leadSubmit.disabled = false;
+          leadHint.textContent = "Đã gửi. Cảm ơn bạn — team sẽ đọc và liên hệ khi phù hợp.";
+          appendBubble(messages, "Mình đã chuyển thông tin của bạn cho team. Cảm ơn bạn đã tin tưởng nhé.", "bot");
+          pushLead("assistant", "[Đã gửi form: Tên / SĐT / Nhu cầu cho team]");
+          leadName.value = "";
+          leadPhone.value = "";
+          leadNeed.value = "";
+          leadFields.hidden = true;
+          leadToggle.setAttribute("aria-expanded", "false");
+        });
+      });
+    }
   }
 
   function init() {
