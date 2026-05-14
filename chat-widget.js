@@ -1,5 +1,5 @@
 /**
- * Chat Thuận Thiên — tư vấn theo 2 nguồn: (1) toàn bộ file .md trong /data, (2) giọng & quy tắc trong data/brandvoice_dump.txt (ID 8–9).
+ * Chat Thuận Thiên — tư vấn theo 2 nguồn: (1) toàn bộ file .md trong /data, (2) giọng & quy tắc trong brandvoice.md (Hiến pháp về giọng văn).
  * Không tự bịa ngoài hai nguồn; bubble dùng textContent. Tải corpus khi mở trang; cốt lõi trả lời vẫn khớp intent + điểm neo trong data.
  */
 (function () {
@@ -105,8 +105,9 @@
     });
   }
 
-  /** Toàn bộ .md trong /data (kiến thức) — đồng bộ khi thêm file. */
+  /** Corpus .md: /data + brandvoice.md ở gốc site — đồng bộ khi thêm file. */
   var DATA_MARKDOWN_URLS = [
+    "brandvoice.md",
     "data/faq/cau-hoi-thuong-gap.md",
     "data/faq/tom-tat-dung-huyen-hoc-hieu-qua-tu-reading.md",
     "data/faq/tom-tat-sach-quy-luat-tai-loc-va-hanh-phuc-tu-reading.md",
@@ -674,7 +675,7 @@
     var root = buildWidget();
     if (!root) return;
     var base = getStaticBase();
-    var voiceUrl = base + "data/brandvoice_dump.txt";
+    var voiceUrl = base + "brandvoice.md";
 
     Promise.all([
       loadDataCorpus(base).catch(function (e) {

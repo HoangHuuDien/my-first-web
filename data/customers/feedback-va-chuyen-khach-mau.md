@@ -1,6 +1,6 @@
 # Feedback & câu chuyện khách — gợi ý mẫu (cần thu thật & xin phép)
 
-*Nội dung dưới đây là **khung mẫu** + ý từ case trong `sales_scripts.md` / `brandvoice_dump.txt`. Khi có khách thật: thay bằng trích dẫn có **đồng ý**, ẩn danh (tên giả + chi tiết đã gỡ nhận diện).*
+*Nội dung dưới đây là **khung mẫu** + ý từ case trong `sales_scripts.md` / `brandvoice.md`. Khi có khách thật: thay bằng trích dẫn có **đồng ý**, ẩn danh (tên giả + chi tiết đã gỡ nhận diện).*
 
 ---
 

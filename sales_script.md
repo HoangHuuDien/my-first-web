@@ -1,6 +1,6 @@
 # Kịch bản chatbot bán hàng — Thuận Thiên (Kinh Dịch · Bát Tự)
 
-*Nguồn dữ liệu: `data/faq`, `data/objections`, `data/customers`, `data/products/*`, `my-brain/brandvoice_dump.txt`.*  
+*Nguồn dữ liệu: `data/faq`, `data/objections`, `data/customers`, `data/products/*`, `brandvoice.md`.*  
 *Mục đích: chatbot / CS bán hàng — giọng **chân thành, thực tế, ngắn gọn**, ưu tiên **ví dụ & ranh giới**, tránh **sáo rỗng / hứa suông**.*
 
 ---
