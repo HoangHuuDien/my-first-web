@@ -36,8 +36,8 @@
       '<label class="tt-chat-lead-label">Tên<input type="text" class="tt-chat-lead-input" id="tt-lead-name" maxlength="120" autocomplete="name" placeholder="Họ tên"></label>' +
       '<label class="tt-chat-lead-label">SĐT<input type="tel" class="tt-chat-lead-input" id="tt-lead-phone" maxlength="20" autocomplete="tel" placeholder="VD: 0901234567"></label>' +
       '<label class="tt-chat-lead-label">Nhu cầu<textarea class="tt-chat-lead-textarea" id="tt-lead-need" rows="2" maxlength="500" placeholder="Bạn cần gì (quẻ, sách, bát tự…)"></textarea></label>' +
-      '<button type="button" class="tt-chat-lead-submit" id="tt-lead-submit">Gửi cho team</button>' +
       '<p class="tt-chat-lead-hint" id="tt-lead-hint" role="status"></p>' +
+      '<button type="button" class="tt-chat-lead-submit" id="tt-lead-submit">Gửi cho team</button>' +
       "</div></div>" +
       '<div class="tt-chat-input-row">' +
       '<textarea class="tt-chat-input" id="tt-chat-input" rows="3" placeholder="Nhắn tin ở đây…" maxlength="800"></textarea>' +
@@ -259,7 +259,7 @@
     var leadPhone = root.querySelector("#tt-lead-phone");
     var leadNeed = root.querySelector("#tt-lead-need");
     var leadSubmit = root.querySelector("#tt-lead-submit");
-    var leadHint = root.querySelector("#tt-lead-hint");
+    var leadSection = root.querySelector("#tt-chat-lead-section");
 
     function pushLead(role, content) {
       leadLog.push({
@@ -439,6 +439,11 @@
         var open = !!leadFields.hidden;
         leadFields.hidden = !open;
         leadToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open && leadSection) {
+          setTimeout(function () {
+            leadSection.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }, 80);
+        }
       });
     }
 
