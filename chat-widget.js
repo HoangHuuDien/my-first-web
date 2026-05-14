@@ -1,18 +1,19 @@
 /**
- * Chat widget — đồng bộ ý định với Top 10 FAQ (`data/faq/cau-hoi-thuong-gap.md` ##1–##10) + `sales_script.md` §2,
- * cùng `data/products/*` (Thuận Thiên). Mỗi bubble: một intent (điểm khớp + priority); không nhét nhiều dịch vụ.
+ * Chat tư vấn Thuận Thiên — giọng theo my-brain/brandvoice_dump.txt (mục ID 8: chuyên gia bát tự / lá số,
+ * đồng cảm → giải pháp → lời khuyên; tránh liệt kê khô; bubble dùng textContent nên không markdown).
+ * Ý định khớp FAQ + sales_script + data/products; mỗi lần chỉ một hướng dịch vụ.
  */
 (function () {
   "use strict";
 
-  var GREETING = "Chào bạn, mình là trợ lý của Thuận Thiên, bạn đang quan tâm điều gì nhỉ?";
+  var GREETING =
+    "Chào bạn, mình là trợ lý Thuận Thiên — bên cạnh người thầy chuyên về bát tự và lá số. Mình biết đôi khi trong lòng có điều chưa nói hết được; bạn đang quan tâm chuyện gì nhỉ? Cứ nhắn tự nhiên như đang trò chuyện, mình lắng nghe.";
 
   var SOFT_CLARIFY =
-    "Mình có thể hiểu tin nhắn theo vài hướng khác nhau. Bạn chốt giúp **một ý** đang cần nhất ngay bây giờ: kẹt **một quyết định gần**, hay lo **tiền — nghề dài hơi**, hay chuyện **số điện thoại / ngày giờ / form**? Nhắn lại **một dòng** — mình trả **một** hướng thôi.";
+    "Mình đọc kỹ dòng tin của bạn mà trong lòng vẫn thấy hai ba hướng, nên mình không muốn đoán vội làm bạn thêm rối. Bạn chống giúp mình một nhịp: bạn đang canh cánh nhất là một việc gần cần quyết, hay là cả một chặng dài về nghề nghiệp và tiền bạc, hay là chuyện số điện thoại, ngày giờ, hay form đăng ký? Nhắn lại một dòng chân thành, mình sẽ trả một hướng cho thật sát tâm.";
 
   var FALLBACK =
-    "Mình chưa bắt được ý chính. Bạn nhắn **một câu ngắn** (đang cần quyết việc gì, hoặc đang lo nhất điều gì) — mình sẽ chỉ **một** cách làm phù hợp.\n\n" +
-    "Muốn team đọc kỹ hơn: form đỏ cuối trang (Họ tên, Email, Zalo).";
+    "Mình chưa nắm được ý bạn lần này — có thể do câu chữ ngắn quá hoặc mình chưa đủ ngữ cảnh; đừng giận mình nhé. Bạn thử nhắn một câu vừa đủ: đang cần quyết việc gì, hoặc đang lo nhất điều gì, mình sẽ dắt bạn đúng một lối đi phù hợp. Nếu muốn team đọc kỹ và liên hệ lại, kéo xuống form đỏ cuối trang (họ tên, email, Zalo) — đó cũng là cách để mình không bỏ sót bạn.";
 
   function norm(s) {
     return (s || "")
@@ -61,25 +62,25 @@
         "mot cau hoi", "1 cau hoi", "co nen lam bay gio", "co nen ky", "co nen hop tac", "hoi mot viec", "hỏi một việc"
       ],
       reply:
-        "Với **một việc cụ thể** sắp quyết (ký — bung tiền — chọn hướng trong vài tháng), hợp nhất là **hỏi quẻ Kinh Dịch**: 200k / câu, nhắn **Cát Tường** định câu rõ **trước khi** rút, làm đúng trang kinhdich.thuanthienkinhdich.com — thường 1–3 ngày có luận sau khi đủ bước."
+        "Khi trong đầu đang có một việc cụ thể sắp phải quyết — ký kết, bung tiền, hay chọn hướng trong vài tháng tới — cảm giác hồi hộp là rất thật. Với tình huống đó, lộ Thuận Thiên hợp nhất là hỏi quẻ Kinh Dịch: 200k một câu, nhưng trước hết hãy nhắn Cát Tường để chốt câu hỏi cho rõ rồi mới rút quẻ, làm đúng như hướng dẫn trên kinhdich.thuanthienkinhdich.com; thường sau khi đủ bước chừng một đến ba ngày sẽ có luận. Hãy cứ chậm một nhịp: hỏi đúng một lần còn hơn vội vàng rồi lại day dứt."
     },
     {
       priority: 94,
       keys: ["luận số", "luan so", "xem so dang dung", "so dang dung", "luansdt", "xem số điện thoại", "danh gia số"],
       reply:
-        "Bạn đang cần **luận một số đang (hoặc sắp) dùng** — một lộ duy nhất: **200k / số**, làm đúng hướng dẫn tại https://luansdt.thuanthienkinhdich.com/. Không ép đổi số."
+        "Mình cảm nhận bạn đang cần một lời thật về số điện thoại mình đang hoặc sắp dùng, chứ không phải lời khơi khơi. Bên Thuận Thiên có một lộ duy nhất cho việc đó: luận số 200k một số, làm đúng hướng dẫn trên luansdt.thuanthienkinhdich.com, không ép bạn đổi số. Bạn cứ đi từng bước như trang ghi; khi đã rõ, tâm cũng nhẹ đi phần nào."
     },
     {
       priority: 93,
       keys: ["tim sim", "tim sdt", "chon sim", "sim moi", "tim so dep", "tim so dien thoai", "chọn số"],
       reply:
-        "Bạn đang cần **tìm số điện thoại mới** theo tiêu chí — một lộ: xem bảng phí theo cấp + tiền sim tại https://sdt.thuanthienkinhdich.com/timsdt, rồi nhắn Cát Tường đủ thông tin theo trang."
+        "Tìm một số mới cho đúng ý mình đôi khi mệt hơn cả chọn nghề, vì vừa tiền sim vừa phí tìm. Nếu bạn đã chắc muốn đi con đường đó, hãy mở bảng phí theo cấp và tiền sim trên sdt.thuanthienkinhdich.com/timsdt, rồi nhắn Cát Tường đủ thông tin như trang hướng dẫn. Chọn số cũng là chọn nhịp sống; làm tỉnh táo thì sau này ít hối hận."
     },
     {
       priority: 86,
       keys: ["sim", "sdt", "so dien thoai", "số máy", "so may", "hotline", "dau so", "đầu số"],
       reply:
-        "Để chỉ **một** quy trình cho đúng: bạn muốn **luận số đang dùng** hay **tìm số mới**? Nhắn lại một chữ **luận** hoặc **tìm** — mình trả đúng một đường."
+        "Chữ “số điện thoại” mở ra hai cửa khác nhau: một là luận số đang dùng, hai là tìm số mới. Mình không muốn chỉ nhầm một chữ mà bạn đi sai cả quy trình. Bạn nhắn lại một tiếng thôi, “luận” nếu muốn xem số hiện tại, hoặc “tìm” nếu muốn tìm số mới; mình sẽ nói tiếp đúng một đường cho bạn."
     },
     {
       priority: 92,
@@ -88,7 +89,7 @@
         "tai lieu a z", "tu hoc ngay gio", "dat truoc tai lieu", "500k dat truoc", "khong muon hoi thay", "ngai hoi thay"
       ],
       reply:
-        "Bạn muốn **tự chọn ngày — giờ tốt** mà không phụ thuộc thầy loanh quanh — hướng phù hợp là **tài liệu A–Z** (đặt trước 500k theo thông báo mốc âm lịch trên trang; luôn đối chiếu bản mới nhất)."
+        "Nhiều bạn muốn tự chọn ngày giờ cho việc quan trọng mà không muốn chạy loanh quanh hỏi thầy từng chút một; tâm lý đó mình hiểu. Hướng Thuận Thiên đang mở cho nhu cầu đó là tài liệu A–Z, đặt trước 500k theo mốc âm lịch thông báo trên trang — luôn đối chiếu bản mới nhất trước khi chốt. Biết cách tự giữ nhịp cho đời mình cũng là một dạng an tâm."
     },
     {
       priority: 91,
@@ -97,7 +98,7 @@
         "hoc ve tien", "khoa hoc tien", "kiem roi mat", "kiếm rồi mất"
       ],
       reply:
-        "Bạn đang lo **tiền — thói quyết định tiền** mà muốn **tự chủ** ít phụ thuộc quẻ từng lần run — **một** lựa chọn phù hợp là khóa **LUCK 1190k**: CK ghi Tên + LUCK, nhắn Cát Tường bill, trang https://www.thuanthienkinhdich.com/luck"
+        "Chuyện tiền đôi khi không phải vì thiếu cơ hội mà vì mình cứ hỏi quẻ rồi lại run, rồi lại sợ, nên trong lòng không yên. Khóa LUCK 1190k là lộ Thuận Thiên dành cho bạn muốn tự chủ hơn trong tư duy và quyết định tiền: chuyển khoản ghi Tên và LUCK, nhắn Cát Tường kèm bill, chi tiết trên thuanthienkinhdich.com/luck. Dựng nội lực dần còn bền hơn trông chờ một phép màu."
     },
     {
       priority: 88,
@@ -106,7 +107,7 @@
         "bat tu khac tu vi", "khac tu vi cho nao", "bat tu khac que cho nao"
       ],
       reply:
-        "Bạn đang cần **phân biệt công cụ** — gọn một ý: **một việc gần, cần quyết** → quẻ; **bức tranh nghề — tiền — hôn nhân theo giai đoạn** → bát tự (hiện đi cùng **sách** theo trang chính thức)."
+        "Lúc đầu ai cũng hơi choáng vì nhiều công cụ cùng một chữ “xem”. Mình gói gọn như người thầy hay nói với học trò: việc gần, cần quyết trong vài tháng, thì quẻ Kinh Dịch hay chạm đúng nhịp; còn bức tranh nghề nghiệp, tiền bạc, hôn nhân theo từng giai đoạn dài, thì bát tự và lá số là tấm bản đồ lớn hơn — hiện Thuận Thiên đưa bát tự đi cùng lộ sách trên trang chính thức. Chọn đúng cửa thì đỡ tốn cả tiền lẫn cảm xúc."
     },
     {
       priority: 84,
@@ -115,7 +116,7 @@
         "hon nhan lau dai", "bức tranh dài", "xem boi menh", "tu van menh", "battu", "sach va bat tu"
       ],
       reply:
-        "Bạn đang hướng tới **bát tự / lá số dài hơi** — một lộ hiện tại: **mua sách Thuận Thiên** (500k ebook + quà kèm có video lá số), cần **đủ năm tháng ngày giờ sinh** và form cẩn thận — trang https://www.thuanthienkinhdich.com/sachthuanthien"
+        "Khi bạn muốn nhìn cả một chặng đường — nghề, tiền, hôn nhân — chứ không chỉ một quyết định nho nhỏ, thì tâm mình thường cần một tấm bản đồ rộng; đó là lúc bát tự và lá số lên tiếng. Hiện tại Thuận Thiên mở lộ qua mua sách Thuận Thiên: ebook 500k kèm quà có video lá số, cần đủ năm tháng ngày giờ sinh và form cẩn thận, chi tiết trên thuanthienkinhdich.com/sachthuanthien. Đừng vội: điền đúng một lần còn hơn sửa đi sửa lại rồi buồn."
     },
     {
       priority: 83,
@@ -123,7 +124,7 @@
         "sach", "ebook", "mua sach thuan", "sach thuan thien", "combo sach", "video la so", "video lá số", "battu kem sach"
       ],
       reply:
-        "Bạn đang hỏi về **sách Thuận Thiên** — một gói: **500k** ebook + quà kèm (có video lá số), form → chuyển khoản → nhắn Cát Tường bill — https://www.thuanthienkinhdich.com/sachthuanthien"
+        "Sách Thuận Thiên không chỉ là file đọc cho qua chuyện; nó là cửa vào để bạn vừa có tài liệu vừa có video lá số đi cùng. Gói đang mở là 500k ebook cùng quà kèm có video lá số: làm form, chuyển khoản, nhắn Cát Tường bill, theo thuanthienkinhdich.com/sachthuanthien. Mỗi trang đọc kỹ một chút là mỗi lần mình hiểu mình rõ hơn — đó là điều mình mong cho bạn."
     },
     {
       priority: 86,
@@ -133,7 +134,7 @@
         "chi cho minh nam sinh", "nam sinh xem duoc khong", "tuoi thi xem duoc khong", "chi co tuoi thoi"
       ],
       reply:
-        "Bạn đang thiếu dữ liệu cho **lá số bát tự** — một hướng: **đủ năm tháng ngày giờ sinh** (tra giấy khai sinh hoặc hỏi nhà) rồi đăng ký theo **sách + video lá số** trên trang chính thức; chưa đủ giờ thì chưa nên chốt sâu bát tự."
+        "Mình hiểu nỗi lòng muốn biết ngay mà chỉ có năm sinh hay tuổi; nhưng lá số bát tự cần đủ năm tháng ngày giờ sinh thì lời luận mới không thành đoán mò làm bạn thêm hoang mang. Bạn cố tra giấy khai sinh hoặc hỏi người nhà lấy giờ, rồi đăng ký theo lộ sách và video lá số trên trang chính thức; chưa đủ giờ thì nên đợi cho đủ, thà chậm mà chắc còn hơn vội rồi sai. Mình ở đây để dắt bạn đúng bước, không phải để nói suông cho vui."
     },
     {
       priority: 78,
@@ -142,7 +143,7 @@
         "sau buoi", "co bi gai them khong", "800k da gom het chua", "gom het chua", "phu phi sau buoi", "sau buoi xem"
       ],
       reply:
-        "Bạn đang lo **phụ phí / gói Zoom** — một ý: bên mình **một mức một việc**, không gài phong thủy — lễ; gói **800k / 1500k Zoom** hiện **không nhận**, lá số đi qua **mua sách** — luôn đối chiếu trang đang live."
+        "Lo lắng “xong rồi còn bị vòi thêm tiền” là tâm lý rất người, mình không coi thường điều đó. Thuận Thiên cam kết một mức một việc, không dọa để bán phong thủy hay lễ; các gói Zoom 800k hay 1500k trên web hiện đang không nhận, còn lá số đang đi qua lộ mua sách — bạn luôn nên đối chiếu trang đang live. Yên tâm đúng chỗ thì mới dám bước tiếp; mình nói vậy vì mình cũng muốn bạn bước cho vững."
     },
     {
       priority: 76,
@@ -151,7 +152,7 @@
         "xem xong co bi", "lam them gi", "lam them gi khong"
       ],
       reply:
-        "Bạn đang lo **xem xong bị gài thêm** — đúng một ranh giới Thuận Thiên: **không** dọa để bán phong thủy / lễ / bùa; nội dung dừng đúng phần đã thỏa thuận."
+        "Có những nơi khiến người ta xem xong cứ nơm nớp sợ bị “gài” thêm — mình nghe nhiều nên hiểu nỗi đó. Ở Thuận Thiên ranh giới rất rõ: không dọa để bán phong thủy, lễ hay bùa; nội dung dừng đúng phần đã thỏa thuận. Bạn cứ giữ sự tỉnh táo của mình; khi được tôn trọng ranh giới, lòng người cũng nhẹ."
     },
     {
       priority: 72,
@@ -161,7 +162,7 @@
         "landing form zalo", "form zalo khac", "khac voi form bat tu", "form tren web khac"
       ],
       reply:
-        "Bạn đang lẫn **form / chỗ nhắn** — gọn một bước: nói **một tên món** bạn muốn (quẻ / sách / LUCK) — mình chỉ **một** link hoặc một kênh (Cát Tường) tương ứng; form đỏ cuối trang này chỉ để **danh sách chờ**."
+        "Lúc trên web có nhiều ô điền, dễ lòng người ta đi nhầm cửa. Bạn cứ nói cho mình một tên món bạn thật sự muốn — quẻ, sách, hay LUCK — mình sẽ chỉ đúng một link hay một kênh Cát Tường cho khỏi lạc. Còn form đỏ cuối trang này là để lại danh sách chờ cho team đọc kỹ, không phải mọi dịch vụ đều đi qua đó. Từng bước rõ ràng thì khỏi uổng công mình lẫn bạn."
     },
     {
       priority: 70,
@@ -170,7 +171,7 @@
         "bao gio toi luot", "co lau khong", "bao lau thi co lich", "khi nao co lich"
       ],
       reply:
-        "Thời gian **phụ thuộc đúng món** bạn đặt — để mình trả **một** khung: bạn đang hỏi sau khi chốt **quẻ** hay sau khi đặt **sách + video lá số**? Nhắn **quẻ** hoặc **sách**."
+        "Chờ đợi lúc nào cũng căng, nhất là khi trong lòng đang có việc. Thời gian phụ thuộc đúng món bạn chốt: quẻ thường gọn trong vài ngày sau khi đủ bước, còn sách và video lá số thì theo nhịp Cát Tường báo trên trang sách. Bạn nhắn lại một chữ “quẻ” hoặc “sách” cho mình biết bạn đang hỏi nhịp nào, để mình nói khung thời gian cho sát, không hứa suông."
     },
     {
       priority: 68,
@@ -179,7 +180,7 @@
         "lich ranh", "co gap cuoi tuan khong", "cuoi tuan co xem duoc khong", "chu nhat co xem duoc khong"
       ],
       reply:
-        "Bạn đang hỏi **lịch rảnh / cuối tuần** — một ý: lịch làm việc kiểu **chiều T2–T7**; chỉ rảnh **Chủ nhật** thì ghi rõ trong form hoặc nhắn Cát Tường để khỏi hẹn trật."
+        "Lịch rảnh của mỗi người khác nhau, mình hiểu đặc biệt những bạn chỉ thở phào được cuối tuần. Thuận Thiên làm việc kiểu chiều thứ hai đến thứ bảy; nếu bạn chỉ rảnh chủ nhật thì ghi rõ trong form hoặc nhắn Cát Tường để khỏi hẹn trật làm bạn mất niềm tin. Sắp xếp được thời gian là đã thương nhau một phần rồi."
     },
     {
       priority: 62,
@@ -188,7 +189,7 @@
         "khong phu hop thi co bi nhan khong"
       ],
       reply:
-        "Bạn đang lo **không được nhận / bị từ chối** — một ranh giới: bên mình **có thể từ chối** case không fit để khỏi phí tiền và cảm xúc hai bên; từ chối là chuyện thẳng, không để bạn tự ái."
+        "Đôi khi người ta sợ nhất không phải bị từ chối mà là bị từ chối theo kiểu làm tổn thương. Thuận Thiên có thể từ chối case không phù hợp, không phải để làm khó bạn mà để khỏi phí tiền và phí cảm xúc hai bên; nói thẳng nhưng không để bạn tự ái. Mình tin rằng biết dừng đúng lúc cũng là một dạng tử tế."
     },
     {
       priority: 58,
@@ -197,7 +198,7 @@
         "co doi van duoc khong", "xem roi co doi van"
       ],
       reply:
-        "Bạn đang nói **xem rồi vẫn bất lực / đổi vận** — mình không bán đổi vận bằng lễ. Để chỉ **một** hướng tiếp: bạn đang đau vì **một quyết định sắp tới** (nên hỏi **quẻ**), hay vì **túi tiền — thói quyết định dài** (nên xem **LUCK**)? Nhắn **quẻ** hoặc **LUCK**."
+        "Xem rồi mà vẫn thấy bất lực là cảm giác rất nặng; mình không dùng chữ “đổi vận” kiểu lễ nghi để hứa suông. Nếu đau ở một quyết định sắp tới, quẻ hay giúp bạn siết rủi ro; nếu đau ở túi tiền và thói quyết định dài hơi, khóa LUCK là hướng Thuận Thiên gợi cho bạn tự dựng lại nhịp. Bạn nhắn “quẻ” hay “LUCK” để mình đi tiếp đúng một con đường, khỏi rối thêm."
     },
     {
       priority: 56,
@@ -206,7 +207,7 @@
         "huyen hoc", "huyền học", "xem bat tu co phai me tin", "bat tu co phai me tin"
       ],
       reply:
-        "Bạn đang ngại **mê tín / có tin được không** — một góc thực dụng: đây là **công cụ nhìn xu hướng và thời điểm** để bớt quyết định nóng — không thay bác sĩ hay luật sư; không tranh luận tin hay không."
+        "Mình không tranh luận tin hay không tin, vì tâm mỗi người một vòng trò. Góc Thuận Thiên dùng bát tự và quẻ như kính soi xu hướng và thời điểm để giảm quyết định nóng và thử sai tốn kém; không thay thuốc men, luật pháp hay trị liệu. Bạn cứ giữ lòng sáng: hiểu mình rõ hơn một chút cũng đã là phúc rồi."
     },
     {
       priority: 32,
@@ -215,7 +216,7 @@
         "phi tim sim", "bao nhieu mot lan"
       ],
       reply:
-        "Bạn đang hỏi **giá** mà chưa gắn rõ món — để mình báo **một** mức đúng trang: bạn chốt **một tên** trong các món đang mở (quẻ / sách / LUCK / luận số / tìm sim / tài liệu ngày giờ) rồi nhắn lại **một chữ** — mình trả đúng một mức."
+        "Hỏi giá mà chưa gắn rõ món đôi khi như hỏi “đi xa bao nhiêu tiền” mà chưa nói đi đâu. Bạn chốt giúp mình một tên trong các lộ đang mở — quẻ, sách, LUCK, luận số, tìm sim, hay tài liệu ngày giờ — rồi nhắn lại một chữ, mình sẽ báo đúng một mức theo trang đang live. Tiền bạc nói thật mới là thương nhau."
     }
   ];
 
@@ -330,7 +331,7 @@
     wrap.className = "tt-chat-bubble";
     var inner = document.createElement("div");
     inner.textContent =
-      "Nếu bạn đã rõ hướng hoặc muốn giữ chỗ cho team đọc kỹ hơn — điền form danh sách chờ ngay trên trang này (kéo xuống phần đỏ).";
+      "Nếu trong lòng bạn đã rõ hướng, hoặc muốn để team đọc kỹ rồi liên hệ lại, cứ kéo xuống form đỏ trên trang này và ghi vài dòng — đó cũng là cách bạn tự trao cho mình cơ hội được lắng nghe đầy đủ.";
     var a = document.createElement("a");
     a.className = "tt-chat-cta";
     a.href = "#contact-form";
