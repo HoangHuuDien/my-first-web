@@ -1,0 +1,9 @@
+{
+  "name": "my-first-web",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Landing Thuận Thiên + chat OpenRouter trên Vercel",
+  "engines": {
+    "node": ">=18"
+  }
+}
