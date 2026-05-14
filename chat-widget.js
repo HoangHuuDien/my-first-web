@@ -198,9 +198,17 @@
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify(payload)
-    }).catch(function (err) {
-      console.warn("[Thuận Thiên chat] Make webhook:", err);
-    });
+    })
+      .then(function (r) {
+        if (!r.ok) {
+          return { ok: false, status: r.status };
+        }
+        return { ok: true, status: r.status };
+      })
+      .catch(function (err) {
+        console.warn("[Thuận Thiên chat] Make webhook:", err);
+        return { ok: false, status: 0, error: err && err.message ? String(err.message) : "network" };
+      });
   }
 
   function buildMakePayload(eventType, sessionId, leadLog, customer, hotReason) {
@@ -259,6 +267,7 @@
     var leadPhone = root.querySelector("#tt-lead-phone");
     var leadNeed = root.querySelector("#tt-lead-need");
     var leadSubmit = root.querySelector("#tt-lead-submit");
+    var leadHint = root.querySelector("#tt-lead-hint");
     var leadSection = root.querySelector("#tt-chat-lead-section");
 
     function pushLead(role, content) {
@@ -472,7 +481,10 @@
           leadHint.textContent = "Bạn ghi giúp nhu cầu ngắn gọn (ít nhất vài chữ).";
           return;
         }
+        var prevBtnText = leadSubmit.textContent;
+        leadHint.textContent = "Đang gửi…";
         leadSubmit.disabled = true;
+        leadSubmit.textContent = "Đang gửi…";
         postMakeWebhook(
           buildMakePayload(
             "lead_form",
@@ -481,9 +493,21 @@
             { name: name, phone: phoneRaw, need: need },
             null
           )
-        ).finally(function () {
+        ).then(function (res) {
+          leadSubmit.textContent = prevBtnText;
           leadSubmit.disabled = false;
-          leadHint.textContent = "Đã gửi. Cảm ơn bạn — team sẽ đọc và liên hệ khi phù hợp.";
+          if (!res || !res.ok) {
+            var st = res && res.status ? String(res.status) : "?";
+            leadHint.textContent =
+              "Chưa gửi được (mã " + st + "). Bạn thử lại sau vài phút; hoặc kéo xuống form đỏ trên trang.";
+            appendBubble(
+              messages,
+              "Mình chưa kết nối được tới Make — có thể do mạng hoặc chặn trình duyệt. Bạn thử bấm Gửi lại, hoặc điền form đỏ trên trang nhé.",
+              "bot"
+            );
+            return;
+          }
+          leadHint.textContent = "Đã gửi xong. Cảm ơn bạn — team sẽ đọc và liên hệ khi phù hợp.";
           appendBubble(messages, "Mình đã chuyển thông tin của bạn cho team. Cảm ơn bạn đã tin tưởng nhé.", "bot");
           pushLead("assistant", "[Đã gửi form: Tên / SĐT / Nhu cầu cho team]");
           leadName.value = "";
