@@ -1,6 +1,7 @@
 /**
- * Chat Thuận Thiên — tư vấn theo 2 nguồn: (1) toàn bộ file .md trong /data, (2) giọng & quy tắc trong brandvoice.md (Hiến pháp về giọng văn).
- * Không tự bịa ngoài hai nguồn; bubble dùng textContent. Tải corpus khi mở trang; cốt lõi trả lời vẫn khớp intent + điểm neo trong data.
+ * Chat Thuận Thiên — tư vấn theo corpus .md + brandvoice.
+ * Quy trình **Suy nghĩ trước — trả lời sau** (SYSTEM_PROMPT.md): Bước 1–3 được thực thi trong code qua `thinkThenReply`
+ * (phân tích ngữ cảnh → chọn nhánh phản hồi → không lặp giá khi khách phản đối). Nội dung đầy đủ của prompt tải từ `SYSTEM_PROMPT.md` vào `KB.systemPrompt`.
  */
 (function () {
   "use strict";
@@ -10,7 +11,8 @@
     brandvoiceOk: false,
     brandvoiceText: "",
     corpusNorm: "",
-    corpusReady: false
+    corpusReady: false,
+    systemPrompt: ""
   };
 
   var GREETING =
@@ -24,6 +26,103 @@
       return "Mình chưa tải xong dữ liệu trên trang — bạn thử tải lại giúp mình nhé. Hoặc điền form đỏ cuối trang để team liên hệ lại.";
     }
     return "Mình chưa hiểu đúng ý lần này. Bạn gửi thêm một câu nói rõ bạn đang cần gì nhé, mình sẽ trả lời đúng phần mình nắm trong dữ liệu.";
+  }
+
+  /**
+   * Bước 1 (tóm tắt nội bộ): khách phản đối / phân vân về tiền — không nhắm nhận diện từ khóa dịch vụ rồi đọc giá.
+   * Chuỗi đã norm() (không dấu, đ→d).
+   */
+  function detectPriceObjection(u) {
+    var s = " " + u + " ";
+    var markers = [
+      " hoi dat ",
+      " hoi mac ",
+      " qua dat ",
+      " qua mac ",
+      " co ve dat ",
+      " co ve mac ",
+      " gia cao ",
+      " phi cao ",
+      " dat qua ",
+      " mac qua ",
+      " dat nhi ",
+      " mac nhi ",
+      " dat a ",
+      " mac a ",
+      " dat the ",
+      " mac the ",
+      " ton kem ",
+      " xot tien ",
+      " giam gia ",
+      " re hon ",
+      " mac hon ",
+      " phien ve ",
+      " phien vi ",
+      " ngan sach ",
+      " tui tien ",
+      " chan ve gia ",
+      " khong re ",
+      " ko re ",
+      " co dat khong ",
+      " co mac khong ",
+      " co dat ko ",
+      " co mac ko "
+    ];
+    var i;
+    for (i = 0; i < markers.length; i++) {
+      if (s.indexOf(markers[i]) !== -1) return true;
+    }
+    return false;
+  }
+
+  function mentionsKinhDich(u) {
+    if (mentionsBatTuFamily(u)) return false;
+    if (u.indexOf("dang ky") !== -1 && (u.indexOf("que") !== -1 || u.indexOf("kinh dich") !== -1)) {
+      return false;
+    }
+    return (
+      u.indexOf("kinh dich") !== -1 ||
+      u.indexOf("iching") !== -1 ||
+      u.indexOf("i ching") !== -1 ||
+      (u.indexOf("que") !== -1 && u.indexOf("kinh") !== -1) ||
+      (u.indexOf("que") !== -1 && u.indexOf("dich") !== -1) ||
+      u.indexOf("que") !== -1
+    );
+  }
+
+  /**
+   * Bước 2–3: phản hồi khi OBJECTION_PRICE — không mở đầu bằng báo lại con số.
+   */
+  function pickPriceObjectionReply(u) {
+    if (mentionsBatTuFamily(u)) {
+      return (
+        "Mình hiểu bạn đang cân chuyện chi phí với lá số / bát tự chứ không phải chưa biết mức nào trên trang. " +
+        "Phần đó mình gắn với sách và video để bạn tự bám khung — mình không lấy giá làm một câu trả lời duy nhất đâu. " +
+        "Bạn đang lăn tăn vì chưa chắc cần độ sâu này, hay vì đang so với chỗ khác? Bạn nói một ý, mình trả lời thẳng theo đúng dữ liệu trên trang nhé."
+      );
+    }
+    if (mentionsKinhDich(u)) {
+      return (
+        "Mình nghe bạn đang thấy phí hơi chạnh, chứ không phải đang hỏi mình đọc lại con số. " +
+        "Một quẻ là để chốt một việc cụ thể trong giai đoạn gần: mình cùng bạn siết câu hỏi, giữ đúng quy trình rút quẻ, rồi luận sao cho bạn đủ để quyết — đó là phần công và trách nhiệm mình gánh, không phải câu chữ cho vui. " +
+        "Nếu bạn chưa có một việc gần cần quyết rõ, có thể bạn chưa cần tới quẻ; khi đã có, bạn cứ nói, mình không ép chốt hộ bạn đâu."
+      );
+    }
+    if (u.indexOf("luck") !== -1 || u.indexOf("1190") !== -1) {
+      return (
+        "Mình hiểu bạn đang cân học phí LUCK chứ không phải cần mình đọc lại con số. " +
+        "Khóa đó là hướng tiền và tự quyết — mình không lấy giá làm câu trả lời duy nhất đâu. " +
+        "Bạn đang phân vân vì chưa chắc có hợp giai đoạn của bạn, hay vì mức đầu tư? Bạn nói một ý, mình nói thẳng phần mình nắm trong dữ liệu trên trang nhé."
+      );
+    }
+    if (asksPriceWords(u)) {
+      return (
+        "Mình hiểu bạn đang lăn tăn về chi phí. Mình không nhắc lại bảng giá làm câu trả lời đâu — " +
+        "bạn cho mình biết bạn đang nhắc tới quẻ Kinh Dịch, bát tự / sách, LUCK, luận số, tìm sim hay ngày giờ, " +
+        "mình nói về giá trị và ranh giới đúng gói đó, đúng giọng Thuận Thiên nhé."
+      );
+    }
+    return null;
   }
 
   function asksPriceWords(u) {
@@ -64,6 +163,7 @@
 
   /** Giá bát tự / lá số — theo data/products/02-bat-tu-tu-van.md */
   function isBatTuPriceOnly(u) {
+    if (detectPriceObjection(u)) return false;
     if (!isPriceOnlyQuestion(u)) return false;
     if (!mentionsBatTuFamily(u)) return false;
     return true;
@@ -71,6 +171,7 @@
 
   /** Chỉ hỏi giá quẻ Kinh Dịch — «quẻ» đứng một mình (không kèm bát tự / lá số) vẫn tính là quẻ KD. */
   function isKinhDichPriceOnly(u) {
+    if (detectPriceObjection(u)) return false;
     if (!isPriceOnlyQuestion(u)) return false;
     if (u.indexOf("dang ky") !== -1 && (u.indexOf("que") !== -1 || u.indexOf("kinh dich") !== -1)) {
       return false;
@@ -105,12 +206,13 @@
     });
   }
 
-  /** Corpus .md: /data + brandvoice.md ở gốc site — đồng bộ khi thêm file. */
+  /** Corpus .md: /data + brandvoice + sales_script — đồng bộ khi thêm file. */
   var DATA_MARKDOWN_URLS = [
     "brandvoice.md",
+    "sales_script.md",
     "data/faq/cau-hoi-thuong-gap.md",
-    "data/faq/tom-tat-dung-huyen-hoc-hieu-qua-tu-reading.md",
-    "data/faq/tom-tat-sach-quy-luat-tai-loc-va-hanh-phuc-tu-reading.md",
+    "data/faq/tomtat-dunghuyenhoc.md",
+    "data/faq/tomtat-sachthuanthien.md",
     "data/products/00-muc-luc-san-pham.md",
     "data/products/01-kinh-dich-tu-van.md",
     "data/products/02-bat-tu-tu-van.md",
@@ -436,11 +538,30 @@
     }
   }
 
+  /**
+   * Mỗi tin khách: Bước 1 phân tích (OBJECTION_PRICE / sản phẩm) → Bước 2–3 chọn reply.
+   * `KB.systemPrompt` giữ bản đầy đủ từ SYSTEM_PROMPT.md (dùng khi nối API sau này hoặc đối chiếu QA).
+   */
+  function thinkThenReply(userText) {
+    return pickReply(userText);
+  }
+
   function pickReply(userText) {
     var raw = (userText || "").trim();
     if (!raw) return null;
     var u = norm(raw);
     if (u.length < 2) return null;
+
+    var objectionPrice = detectPriceObjection(u);
+    if (objectionPrice) {
+      var objReply = pickPriceObjectionReply(u);
+      if (objReply) return objReply;
+      return (
+        "Mình hiểu phần chi phí đang làm bạn khó chịu. Mình không đọc giá lại như máy đâu — " +
+        "bạn đang nói về quẻ, bát tự / sách, LUCK, luận số, hay món nào trên trang Thuận Thiên? " +
+        "Mình nói rõ giá trị và ranh giới đúng phần đó nhé."
+      );
+    }
 
     if (isBatTuPriceOnly(u)) {
       return "Xem bát tự hiện gắn với sách Thuận Thiên 500k (ebook + phần quà có video lá số). Trang vẫn ghi gói Zoom 800k một lá và 1500k hai lá nhưng đang tạm không nhận — bạn xem mục bát tự trên trang để khớp cập nhật nhé.";
@@ -629,7 +750,7 @@
       appendBubble(messages, text, "user");
       userMsgCount += 1;
 
-      var reply = pickReply(text);
+      var reply = thinkThenReply(text);
       if (!reply) reply = fallbackReply();
       appendBubble(messages, reply, "bot");
 
@@ -677,6 +798,11 @@
     var base = getStaticBase();
     var voiceUrl = base + "brandvoice.md";
 
+    KB.systemPrompt =
+      typeof SYSTEM_PROMPT_MARKDOWN !== "undefined" && SYSTEM_PROMPT_MARKDOWN
+        ? SYSTEM_PROMPT_MARKDOWN.trim()
+        : "";
+
     Promise.all([
       loadDataCorpus(base).catch(function (e) {
         console.warn("[Thuận Thiên chat] Không tải đủ corpus /data:", e);
@@ -688,6 +814,13 @@
         })
         .catch(function (e) {
           console.warn("[Thuận Thiên chat] Không tải brandvoice:", voiceUrl, e);
+        }),
+      fetchText(base + "SYSTEM_PROMPT.md")
+        .then(function (t) {
+          if (t && t.trim().length > 80) KB.systemPrompt = t.trim();
+        })
+        .catch(function (e) {
+          console.warn("[Thuận Thiên chat] Không tải SYSTEM_PROMPT.md:", e);
         })
     ]).finally(function () {
       wireWidget(root);
