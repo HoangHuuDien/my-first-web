@@ -1,5 +1,5 @@
 /**
- * Chat Thuận Thiên — tư vấn qua OpenRouter (Claude 3.5 Sonnet).
+ * Chat Thuận Thiên — tư vấn qua OpenRouter (model mặc định: Claude Sonnet 4.5; đổi bằng OPENROUTER_MODEL trên Vercel).
  * Cần deploy lên Vercel + OPENROUTER_API_KEY. API /api/chat đọc data/SYSTEM_PROMPT.md, data/brandvoice.md, data/sales_script.md.
  */
 (function () {

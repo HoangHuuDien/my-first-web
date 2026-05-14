@@ -1,13 +1,17 @@
 /**
- * Vercel Serverless — OpenRouter (Claude 3.5 Sonnet).
- * Biến môi trường: OPENROUTER_API_KEY.
- * System message đọc từ thư mục /data: SYSTEM_PROMPT.md, brandvoice.md, sales_script.md.
- * Lưu ý: Header HTTP chỉ dùng ký tự ASCII (tránh lỗi ByteString với tiếng Việt).
+ * Vercel Serverless — OpenRouter.
+ * Biến môi trường: OPENROUTER_API_KEY (bắt buộc), OPENROUTER_MODEL (tùy chọn).
+ * Model mặc định: anthropic/claude-sonnet-4.5 (OpenRouter đã ngừng endpoint anthropic/claude-3.5-sonnet).
+ * Đổi model: Vercel → Environment Variables → OPENROUTER_MODEL = ví dụ openai/gpt-4o
+ * System message đọc từ /data: SYSTEM_PROMPT.md, brandvoice.md, sales_script.md.
+ * Header HTTP chỉ ASCII (tránh lỗi ByteString).
  */
 const fs = require("fs");
 const path = require("path");
 
-const MODEL = "anthropic/claude-3.5-sonnet";
+var MODEL =
+  (typeof process !== "undefined" && process.env && process.env.OPENROUTER_MODEL && process.env.OPENROUTER_MODEL.trim()) ||
+  "anthropic/claude-sonnet-4.5";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 let cachedSystem = null;
