@@ -1,0 +1,277 @@
+/* Thuận Thiên — widget chat (đồng bộ palette index.html) */
+:root {
+  --tt-chat-bg: #f6f5f2;
+  --tt-chat-bg-outer: #ebe8e2;
+  --tt-chat-border: #d4d2cb;
+  --tt-chat-text: #1b1b1b;
+  --tt-chat-muted: #6f695f;
+  --tt-chat-accent: #b59a66;
+  --tt-chat-accent-soft: rgba(181, 154, 102, 0.22);
+  --tt-chat-user: #1f1d19;
+  --tt-chat-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  --tt-chat-red1: #ef3b42;
+  --tt-chat-red2: #dd252f;
+}
+
+#thuan-thien-chat-root {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 99990;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 10px;
+  font-family: "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--tt-chat-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.tt-chat-launcher {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 1px solid var(--tt-chat-border);
+  background: linear-gradient(145deg, #fff 0%, var(--tt-chat-bg) 100%);
+  box-shadow: var(--tt-chat-shadow);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  color: var(--tt-chat-accent);
+}
+
+.tt-chat-launcher:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
+}
+
+.tt-chat-launcher svg {
+  width: 28px;
+  height: 28px;
+}
+
+.tt-chat-launcher .tt-chat-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--tt-chat-red1), var(--tt-chat-red2));
+  border: 2px solid #fff;
+}
+
+.tt-chat-panel {
+  width: min(440px, calc(100vw - 28px));
+  max-height: min(620px, calc(100vh - 100px));
+  display: none;
+  flex-direction: column;
+  border-radius: 20px;
+  border: 1px solid var(--tt-chat-border);
+  background: var(--tt-chat-bg-outer);
+  box-shadow: var(--tt-chat-shadow);
+  overflow: hidden;
+  transform-origin: bottom right;
+}
+
+#thuan-thien-chat-root.tt-chat-open .tt-chat-panel {
+  display: flex;
+  animation: tt-chat-pop 0.22s ease-out;
+}
+
+@keyframes tt-chat-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.tt-chat-header {
+  padding: 14px 16px;
+  background: #07080d;
+  color: #f6f1e8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tt-chat-header-title {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+
+.tt-chat-header-sub {
+  font-size: 12px;
+  color: #c9c2b5;
+  margin-top: 2px;
+}
+
+.tt-chat-close {
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f6f1e8;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tt-chat-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.tt-chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 14px 8px;
+  background: linear-gradient(180deg, #ebe8e2 0%, #e9e6df 100%);
+  min-height: 280px;
+}
+
+.tt-chat-row {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.tt-chat-row.bot {
+  justify-content: flex-start;
+}
+
+.tt-chat-row.user {
+  justify-content: flex-end;
+}
+
+.tt-chat-bubble {
+  max-width: 92%;
+  padding: 11px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--tt-chat-border);
+  background: #fff;
+  color: #2e2a25;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tt-chat-row.user .tt-chat-bubble {
+  background: #1f1d19;
+  color: #f6f5f2;
+  border-color: #2a2824;
+}
+
+.tt-chat-cta-wrap {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tt-chat-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  color: #fff;
+  background: linear-gradient(180deg, var(--tt-chat-red1) 0%, var(--tt-chat-red2) 100%);
+  box-shadow: 0 6px 16px rgba(187, 35, 42, 0.28);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.tt-chat-cta:hover {
+  filter: brightness(1.03);
+  transform: translateY(-1px);
+}
+
+.tt-chat-input-row {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--tt-chat-border);
+  background: linear-gradient(180deg, #f3f1ec 0%, var(--tt-chat-bg) 100%);
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.tt-chat-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--tt-chat-border);
+  border-radius: 18px;
+  padding: 14px 16px;
+  font-size: 15px;
+  line-height: 1.5;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 88px;
+  max-height: 200px;
+  outline: none;
+  background: #fff;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tt-chat-input::placeholder {
+  color: var(--tt-chat-muted);
+  opacity: 0.85;
+}
+
+.tt-chat-input:focus {
+  border-color: var(--tt-chat-accent);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 3px var(--tt-chat-accent-soft);
+}
+
+.tt-chat-send {
+  border: none;
+  border-radius: 18px;
+  width: 52px;
+  min-height: 88px;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: linear-gradient(180deg, var(--tt-chat-red1), var(--tt-chat-red2));
+  color: #fff;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(187, 35, 42, 0.25);
+  align-self: stretch;
+}
+
+.tt-chat-send:hover {
+  filter: brightness(1.05);
+}
+
+.tt-chat-send:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  #thuan-thien-chat-root {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .tt-chat-panel {
+    width: calc(100vw - 24px);
+  }
+}
