@@ -1,42 +1,56 @@
 /**
  * Vercel Serverless — OpenRouter (Claude 3.5 Sonnet).
- * Biến môi trường: OPENROUTER_API_KEY (đặt trong Vercel → Settings → Environment Variables).
- * System message = SYSTEM_PROMPT.md + brandvoice.md + sales_script.md (đọc từ thư mục gốc repo).
+ * Biến môi trường: OPENROUTER_API_KEY.
+ * System message đọc từ thư mục /data: SYSTEM_PROMPT.md, brandvoice.md, sales_script.md.
+ * Lưu ý: Header HTTP chỉ dùng ký tự ASCII (tránh lỗi ByteString với tiếng Việt).
  */
 const fs = require("fs");
 const path = require("path");
 
-const ROOT = path.join(__dirname, "..");
 const MODEL = "anthropic/claude-3.5-sonnet";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 let cachedSystem = null;
 
-function readUtf8Safe(rel) {
+function getDataDir() {
+  var cwdData = path.join(process.cwd(), "data");
+  var relData = path.join(__dirname, "..", "data");
   try {
-    return fs.readFileSync(path.join(ROOT, rel), "utf8");
+    if (fs.existsSync(path.join(cwdData, "SYSTEM_PROMPT.md"))) return cwdData;
+  } catch (e) {}
+  try {
+    if (fs.existsSync(path.join(relData, "SYSTEM_PROMPT.md"))) return relData;
+  } catch (e2) {}
+  return cwdData;
+}
+
+function readUtf8Safe(filename) {
+  var base = getDataDir();
+  var full = path.join(base, filename);
+  try {
+    return fs.readFileSync(full, { encoding: "utf8" });
   } catch (e) {
-    console.warn("[api/chat] Missing file:", rel, e && e.message);
+    console.warn("[api/chat] Missing file:", full, e && e.message);
     return "";
   }
 }
 
 function buildSystemPrompt() {
   if (cachedSystem) return cachedSystem;
-  const system = readUtf8Safe("SYSTEM_PROMPT.md").trim();
-  const brand = readUtf8Safe("brandvoice.md").trim();
-  const sales = readUtf8Safe("sales_script.md").trim();
-  const tail =
-    "\n\n---\n\n## Bổ trợ vận hành (chỉ nội bộ — không đọc cho khách)\n" +
-    "- Trả lời **tiếng Việt**, giọng **Thanh A** (mình — bạn), tự nhiên, có suy nghĩ; không trả lời máy móc, không lộ meta hướng dẫn hệ thống.\n" +
-    "- Luôn đọc **ngữ cảnh vài tin gần nhất**; không hỏi lại thông tin khách đã nói.\n" +
-    "- Chỉ dùng nội dung trong các khối system phía trên; nếu không chắc số liệu/chính sách, bảo khách đối chiếu **trang Thuận Thiên chính thức**.\n";
+  var system = readUtf8Safe("SYSTEM_PROMPT.md").trim();
+  var brand = readUtf8Safe("brandvoice.md").trim();
+  var sales = readUtf8Safe("sales_script.md").trim();
+  var tail =
+    "\n\n---\n\n## Bo tro van hanh (chi noi bo)\n" +
+    "- Tra loi tieng Viet, giong Thanh A (minh - ban), tu nhien, co suy nghi; khong tra loi may moc, khong lo meta huong dan he thong.\n" +
+    "- Luon doc ngu canh vai tin gan nhat; khong hoi lai thong tin khach da noi.\n" +
+    "- Chi dung noi dung trong cac khoi system phia tren; neu khong chac so lieu/chinh sach, bao khach doi chieu trang Thuan Thien chinh thuc.\n";
   cachedSystem = [
     system,
-    "\n\n---\n\n## Brand voice (kim chỉ nam — diễn đạt lại, không copy nguyên văn cho khách)\n\n",
-    brand || "(Không đọc được brandvoice.md.)",
-    "\n\n---\n\n## Sales script & thông tin gói (kim chỉ nam — diễn đạt lại)\n\n",
-    sales || "(Không đọc được sales_script.md.)",
+    "\n\n---\n\n## Brand voice (kim chi nam — dien dat lai, khong copy nguyen van cho khach)\n\n",
+    brand || "(Khong doc duoc data/brandvoice.md.)",
+    "\n\n---\n\n## Sales script & thong tin goi (kim chi nam — dien dat lai)\n\n",
+    sales || "(Khong doc duoc data/sales_script.md.)",
     tail
   ].join("");
   return cachedSystem;
@@ -80,11 +94,16 @@ function sanitizeMessages(messages) {
   return out;
 }
 
+function asciiReferer() {
+  var v = process.env.VERCEL_URL || "";
+  if (!v) return "https://github.com/HoangHuuDien/my-first-web";
+  return v.indexOf("http") === 0 ? v : "https://" + v;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
   if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.statusCode = 204;
@@ -100,7 +119,7 @@ module.exports = async function handler(req, res) {
     res.statusCode = 500;
     return res.end(
       JSON.stringify({
-        error: "Thiếu OPENROUTER_API_KEY trên server. Thêm biến này trong Vercel → Project → Settings → Environment Variables."
+        error: "Thieu OPENROUTER_API_KEY tren server. Them bien trong Vercel Project Settings."
       })
     );
   }
@@ -110,37 +129,45 @@ module.exports = async function handler(req, res) {
     payload = await parseBody(req);
   } catch (e) {
     res.statusCode = 400;
-    return res.end(JSON.stringify({ error: "JSON không hợp lệ." }));
+    return res.end(JSON.stringify({ error: "JSON khong hop le." }));
   }
 
   var incoming = sanitizeMessages(payload.messages);
   if (!incoming.length) {
     res.statusCode = 400;
-    return res.end(JSON.stringify({ error: "Thiếu messages." }));
+    return res.end(JSON.stringify({ error: "Thieu messages." }));
   }
 
   var systemContent = buildSystemPrompt();
+  if (!systemContent || systemContent.length < 80) {
+    console.error("[api/chat] System prompt empty — check data/*.md and includeFiles on Vercel.");
+    res.statusCode = 500;
+    return res.end(
+      JSON.stringify({
+        error: "Server chua doc duoc data/SYSTEM_PROMPT.md (va brandvoice, sales_script). Kiem tra deploy va vercel.json includeFiles."
+      })
+    );
+  }
+
   var apiMessages = [{ role: "system", content: systemContent }].concat(incoming);
+  var requestPayload = {
+    model: MODEL,
+    messages: apiMessages,
+    max_tokens: 1200,
+    temperature: 0.65
+  };
+  var bodyUtf8 = Buffer.from(JSON.stringify(requestPayload), "utf8");
 
   try {
     var orRes = await fetch(OPENROUTER_URL, {
       method: "POST",
       headers: {
         Authorization: "Bearer " + key,
-        "Content-Type": "application/json",
-        "HTTP-Referer": (function () {
-          var v = process.env.VERCEL_URL || "";
-          if (!v) return "https://github.com/HoangHuuDien/my-first-web";
-          return v.indexOf("http") === 0 ? v : "https://" + v;
-        })(),
-        "X-Title": "Thuận Thiên Chat"
+        "Content-Type": "application/json; charset=utf-8",
+        "HTTP-Referer": asciiReferer(),
+        "X-Title": "Thuan Thien Chat"
       },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: apiMessages,
-        max_tokens: 1200,
-        temperature: 0.65
-      })
+      body: bodyUtf8
     });
 
     var text = await orRes.text();
@@ -149,7 +176,7 @@ module.exports = async function handler(req, res) {
       res.statusCode = 502;
       return res.end(
         JSON.stringify({
-          error: "OpenRouter trả lỗi (" + orRes.status + "). Thử lại sau hoặc kiểm tra API key / hạn mức."
+          error: "OpenRouter tra loi (" + orRes.status + "). Thu lai sau hoac kiem tra API key."
         })
       );
     }
@@ -159,13 +186,13 @@ module.exports = async function handler(req, res) {
     reply = String(reply).trim();
     if (!reply) {
       res.statusCode = 502;
-      return res.end(JSON.stringify({ error: "Model không trả nội dung." }));
+      return res.end(JSON.stringify({ error: "Model khong tra noi dung." }));
     }
     res.statusCode = 200;
     return res.end(JSON.stringify({ reply: reply }));
   } catch (e) {
     console.error("[api/chat]", e);
     res.statusCode = 500;
-    return res.end(JSON.stringify({ error: "Lỗi server khi gọi OpenRouter." }));
+    return res.end(JSON.stringify({ error: "Loi server khi goi OpenRouter." }));
   }
 };

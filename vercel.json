@@ -1,7 +1,12 @@
 {
   "functions": {
     "api/chat.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": [
+        "data/SYSTEM_PROMPT.md",
+        "data/brandvoice.md",
+        "data/sales_script.md"
+      ]
     }
   }
 }

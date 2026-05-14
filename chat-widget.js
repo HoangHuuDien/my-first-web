@@ -1,6 +1,6 @@
 /**
  * Chat Thuận Thiên — tư vấn qua OpenRouter (Claude 3.5 Sonnet).
- * Cần deploy lên Vercel + biến OPENROUTER_API_KEY. API: /api/chat (server đọc SYSTEM_PROMPT.md, brandvoice.md, sales_script.md).
+ * Cần deploy lên Vercel + OPENROUTER_API_KEY. API /api/chat đọc data/SYSTEM_PROMPT.md, data/brandvoice.md, data/sales_script.md.
  */
 (function () {
   "use strict";
