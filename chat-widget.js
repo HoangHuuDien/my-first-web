@@ -1,21 +1,30 @@
 /**
- * Chat Thuận Thiên — giọng ngắn, chân thành, đúng vấn đề (tham chiếu data/brandvoice_dump.txt ID 8).
- * Khi mở trang: fetch data/faq/cau-hoi-thuong-gap.md + data/brandvoice_dump.txt (cùng gốc với chat-widget.js)
- * để bổ sung từ khóa từ tiêu đề FAQ; bubble dùng textContent (không markdown).
+ * Chat Thuận Thiên — tư vấn theo 2 nguồn: (1) toàn bộ file .md trong /data, (2) giọng & quy tắc trong data/brandvoice_dump.txt (ID 8–9).
+ * Không tự bịa ngoài hai nguồn; bubble dùng textContent. Tải corpus khi mở trang; cốt lõi trả lời vẫn khớp intent + điểm neo trong data.
  */
 (function () {
   "use strict";
 
-  var KB = { faqLoaded: false, brandvoiceOk: false };
+  var KB = {
+    faqLoaded: false,
+    brandvoiceOk: false,
+    brandvoiceText: "",
+    corpusNorm: "",
+    corpusReady: false
+  };
 
   var GREETING =
-    "Chào bạn, mình là trợ lý Thuận Thiên. Bạn đang cần hỏi gì? Nhắn ngắn gọn, mình trả đúng chỗ.";
+    "Chào bạn, mình là trợ lý Thuận Thiên — chỉ căn cứ kho /data và giọng trong brandvoice_dump.txt, không tự bịa. Bạn cần hỏi gì? Nhắn ngắn gọn.";
 
   var SOFT_CLARIFY =
-    "Mình chưa chắc bạn đang hỏi nhánh nào. Bạn chọn một ý: việc gần cần quyết, hay nghề–tiền dài hơi, hay số điện thoại / ngày giờ / form? Một dòng là đủ.";
+    "Mình chưa chắc nhánh bạn cần. Chọn một ý: việc gần cần quyết, nghề–tiền dài hơi, hay số điện thoại / ngày giờ / form? Một dòng — mình trả đúng trong data.";
 
-  var FALLBACK =
-    "Mình chưa hiểu ý lần này. Bạn gửi một câu rõ hơn (đang lo gì hoặc cần quyết gì). Hoặc điền form đỏ cuối trang để team liên hệ.";
+  function fallbackReply() {
+    if (!KB.corpusReady) {
+      return "Mình chưa tải xong kho /data — bạn thử tải lại trang. Khi ổn định mình chỉ trả lời theo data và brandvoice_dump.txt, không bịa. Hoặc điền form đỏ để team đọc.";
+    }
+    return "Mình chưa khớp một món cụ thể trong data. Bạn gửi thêm một câu rõ ý (đang lo gì / cần quyết gì). Mình không tự thêm thông tin ngoài /data và brandvoice.";
+  }
 
   function getStaticBase() {
     var scripts = document.getElementsByTagName("script");
@@ -34,6 +43,62 @@
       if (!r.ok) throw new Error(String(r.status));
       return r.text();
     });
+  }
+
+  /** Toàn bộ .md trong /data (kiến thức) — đồng bộ khi thêm file. */
+  var DATA_MARKDOWN_URLS = [
+    "data/faq/cau-hoi-thuong-gap.md",
+    "data/faq/tom-tat-dung-huyen-hoc-hieu-qua-tu-reading.md",
+    "data/faq/tom-tat-sach-quy-luat-tai-loc-va-hanh-phuc-tu-reading.md",
+    "data/products/00-muc-luc-san-pham.md",
+    "data/products/01-kinh-dich-tu-van.md",
+    "data/products/02-bat-tu-tu-van.md",
+    "data/products/03-sach-thuan-thien.md",
+    "data/products/04-tai-lieu-ngay-gio-tot.md",
+    "data/products/05-xem-so-dien-thoai.md",
+    "data/products/06-chon-so-dien-thoai-dep.md",
+    "data/products/07-khoa-hoc-luck.md",
+    "data/objections/tu-choi-va-cach-xu-ly.md",
+    "data/customers/feedback-va-chuyen-khach-mau.md"
+  ];
+
+  function loadDataCorpus(base) {
+    var list = DATA_MARKDOWN_URLS.map(function (p) {
+      return { path: p, url: base + p };
+    });
+    return Promise.all(
+      list.map(function (item) {
+        return fetchText(item.url).then(function (t) {
+          return { path: item.path, text: t || "" };
+        }).catch(function () {
+          return { path: item.path, text: "" };
+        });
+      })
+    ).then(function (pairs) {
+      var faqMd = "";
+      var rawParts = [];
+      var i;
+      for (i = 0; i < pairs.length; i++) {
+        rawParts.push(pairs[i].text);
+        if (pairs[i].path === "data/faq/cau-hoi-thuong-gap.md") faqMd = pairs[i].text;
+      }
+      KB.corpusNorm = norm(rawParts.join("\n\n---\n\n")).slice(0, 200000);
+      KB.corpusReady = KB.corpusNorm.length > 500;
+      if (faqMd) applyFaqHeadingsToIntents(faqMd);
+      KB.faqLoaded = !!faqMd;
+    });
+  }
+
+  function intentCorpusBoost(item) {
+    if (!KB.corpusReady || !KB.corpusNorm) return 0;
+    var extra = 0;
+    var j;
+    for (j = 0; j < item.keys.length; j++) {
+      var nk = norm(item.keys[j]);
+      if (nk.length < 5) continue;
+      if (KB.corpusNorm.indexOf(nk) !== -1) extra += 2;
+    }
+    return extra > 10 ? 10 : extra;
   }
 
   function norm(s) {
@@ -265,7 +330,6 @@
       var head = title.split(/[/|—–:]/)[0].trim();
       if (head.length > 6 && head !== title) add(head);
     }
-    KB.faqLoaded = true;
   }
 
   function pickReply(userText) {
@@ -277,7 +341,8 @@
     var rows = [];
     var i;
     for (i = 0; i < INTENTS.length; i++) {
-      rows.push({ i: i, s: faqScore(u, INTENTS[i]), p: INTENTS[i].priority });
+      var item = INTENTS[i];
+      rows.push({ i: i, s: faqScore(u, item) + intentCorpusBoost(item), p: item.priority });
     }
     rows.sort(function (a, b) {
       if (b.s !== a.s) return b.s - a.s;
@@ -349,7 +414,7 @@
       "</svg></button>" +
       '<div class="tt-chat-panel" role="dialog" aria-label="Chat tư vấn Thuận Thiên">' +
       '<div class="tt-chat-header">' +
-      '<div><div class="tt-chat-header-title">Thuận Thiên</div><div class="tt-chat-header-sub">Gợi ý theo kiến thức Thuận Thiên — không thay tư vấn từng ca 1-1</div></div>' +
+      '<div><div class="tt-chat-header-title">Thuận Thiên</div><div class="tt-chat-header-sub">Theo kho /data + brandvoice — không thay tư vấn từng ca 1-1</div></div>' +
       '<button type="button" class="tt-chat-close" aria-label="Đóng chat">×</button></div>' +
       '<div class="tt-chat-messages" id="tt-chat-messages"></div>' +
       '<div class="tt-chat-input-row">' +
@@ -454,7 +519,7 @@
       userMsgCount += 1;
 
       var reply = pickReply(text);
-      if (!reply) reply = FALLBACK;
+      if (!reply) reply = fallbackReply();
       appendBubble(messages, reply, "bot");
 
       if (detectInterest(text)) {
@@ -499,18 +564,16 @@
     var root = buildWidget();
     if (!root) return;
     var base = getStaticBase();
-    var faqUrl = base + "data/faq/cau-hoi-thuong-gap.md";
     var voiceUrl = base + "data/brandvoice_dump.txt";
 
     Promise.all([
-      fetchText(faqUrl)
-        .then(applyFaqHeadingsToIntents)
-        .catch(function (e) {
-          console.warn("[Thuận Thiên chat] Không tải FAQ:", faqUrl, e);
-        }),
+      loadDataCorpus(base).catch(function (e) {
+        console.warn("[Thuận Thiên chat] Không tải đủ corpus /data:", e);
+      }),
       fetchText(voiceUrl)
-        .then(function () {
-          KB.brandvoiceOk = true;
+        .then(function (t) {
+          KB.brandvoiceText = t || "";
+          KB.brandvoiceOk = KB.brandvoiceText.length > 80;
         })
         .catch(function (e) {
           console.warn("[Thuận Thiên chat] Không tải brandvoice:", voiceUrl, e);
