@@ -14,16 +14,42 @@
   };
 
   var GREETING =
-    "Chào bạn, mình là trợ lý Thuận Thiên — chỉ căn cứ kho /data và giọng trong brandvoice_dump.txt, không tự bịa. Bạn cần hỏi gì? Nhắn ngắn gọn.";
+    "Chào bạn, mình là trợ lý Thuận Thiên, bạn quan tâm điều gì, hãy đặt câu hỏi cho mình nhé.";
 
   var SOFT_CLARIFY =
-    "Mình chưa chắc nhánh bạn cần. Chọn một ý: việc gần cần quyết, nghề–tiền dài hơi, hay số điện thoại / ngày giờ / form? Một dòng — mình trả đúng trong data.";
+    "Mình chưa chắc bạn đang cần nhánh nào. Bạn cho mình biết gần đây bạn đang lo việc gì, hay muốn hỏi về quẻ, sách, số điện thoại, ngày giờ — mình trả lời gọn theo đúng phần đó nhé.";
 
   function fallbackReply() {
     if (!KB.corpusReady) {
-      return "Mình chưa tải xong kho /data — bạn thử tải lại trang. Khi ổn định mình chỉ trả lời theo data và brandvoice_dump.txt, không bịa. Hoặc điền form đỏ để team đọc.";
+      return "Mình chưa tải xong dữ liệu trên trang — bạn thử tải lại giúp mình nhé. Hoặc điền form đỏ cuối trang để team liên hệ lại.";
     }
-    return "Mình chưa khớp một món cụ thể trong data. Bạn gửi thêm một câu rõ ý (đang lo gì / cần quyết gì). Mình không tự thêm thông tin ngoài /data và brandvoice.";
+    return "Mình chưa hiểu đúng ý lần này. Bạn gửi thêm một câu nói rõ bạn đang cần gì nhé, mình sẽ trả lời đúng phần mình nắm trong dữ liệu.";
+  }
+
+  /** Chỉ hỏi giá quẻ Kinh Dịch — trả một câu, không lan sang quy trình hay tên trợ lý. */
+  function isKinhDichPriceOnly(u) {
+    if (u.indexOf("lam sao") !== -1 || u.indexOf("cac buoc") !== -1 || u.indexOf("huong dan") !== -1 || u.indexOf("quy trinh") !== -1 || u.indexOf("nhu the nao") !== -1) {
+      return false;
+    }
+    if (u.indexOf("dang ky") !== -1 && (u.indexOf("que") !== -1 || u.indexOf("kinh dich") !== -1)) {
+      return false;
+    }
+    var asksPrice =
+      u.indexOf("gia") !== -1 ||
+      u.indexOf("phi") !== -1 ||
+      u.indexOf("bao nhieu") !== -1 ||
+      u.indexOf("bao nhieu tien") !== -1 ||
+      u.indexOf("het bao nhieu") !== -1 ||
+      u.indexOf("muc phi") !== -1 ||
+      u.indexOf("chi phi") !== -1;
+    if (!asksPrice) return false;
+    return (
+      u.indexOf("kinh dich") !== -1 ||
+      u.indexOf("iching") !== -1 ||
+      u.indexOf("i ching") !== -1 ||
+      (u.indexOf("que") !== -1 && u.indexOf("kinh") !== -1) ||
+      (u.indexOf("que") !== -1 && u.indexOf("dich") !== -1)
+    );
   }
 
   function getStaticBase() {
@@ -147,19 +173,19 @@
         "mot cau hoi", "1 cau hoi", "co nen lam bay gio", "co nen ky", "co nen hop tac", "hoi mot viec", "hỏi một việc"
       ],
       reply:
-        "Một việc sắp quyết trong vài tháng thì hợp nhất là hỏi quẻ Kinh Dịch: 200k/câu, nhắn Cát Tường chốt câu trước khi rút, làm theo kinhdich.thuanthienkinhdich.com. Thường vài ngày có luận khi đủ bước."
+        "Quẻ Kinh Dịch hợp khi bạn cần quyết một việc cụ thể trong giai đoạn gần (thường vài tháng), một câu là 200k. Bạn muốn mình nói giá cụ thể, hay các bước để được xem quẻ? Mình sẽ trả lời đúng phần bạn chọn, không gửi link trong chat đâu."
     },
     {
       priority: 94,
       keys: ["luận số", "luan so", "xem so dang dung", "so dang dung", "luansdt", "xem số điện thoại", "danh gia số"],
       reply:
-        "Luận số đang (hoặc sắp) dùng: 200k/số, xem luansdt.thuanthienkinhdich.com. Không ép đổi số."
+        "Luận số đang (hoặc sắp) dùng: 200k một số, chi tiết và mẫu tin nằm trên trang Thuận Thiên (mục luận số điện thoại). Mình không gửi link trong chat — bạn xem trực tiếp trang để đối chiếu. Không ép đổi số."
     },
     {
       priority: 93,
       keys: ["tim sim", "tim sdt", "chon sim", "sim moi", "tim so dep", "tim so dien thoai", "chọn số"],
       reply:
-        "Tìm số mới: bảng phí và bước tại sdt.thuanthienkinhdich.com/timsdt, rồi nhắn Cát Tường đúng như trang."
+        "Tìm số mới: bảng phí và từng bước nằm trên trang Thuận Thiên (mục tìm số). Mình không gửi link trong chat — bạn mở trang để đọc cho chắc, có chỗ chưa rõ thì nhắn lại mình."
     },
     {
       priority: 86,
@@ -183,7 +209,7 @@
         "hoc ve tien", "khoa hoc tien", "kiem roi mat", "kiếm rồi mất"
       ],
       reply:
-        "Khóa LUCK 1190k (tiền, tự quyết): CK ghi Tên + LUCK, bill cho Cát Tường — thuanthienkinhdich.com/luck."
+        "Khóa LUCK 1190k (tiền, tự quyết): chuyển khoản ghi rõ Tên + LUCK, gửi bill cho trợ lý theo hướng dẫn trên trang Thuận Thiên (mục LUCK). Mình không nhét link trong chat — bạn xem trang chính thức để khớp từng bước."
     },
     {
       priority: 88,
@@ -201,7 +227,7 @@
         "hon nhan lau dai", "bức tranh dài", "xem boi menh", "tu van menh", "battu", "sach va bat tu"
       ],
       reply:
-        "Lá số dài: lộ qua sách Thuận Thiên (500k ebook + video lá số), cần đủ giờ sinh — thuanthienkinhdich.com/sachthuanthien."
+        "Lá số dài: mình khuyên đi qua sách Thuận Thiên (500k gồm ebook và phần quà có video lá số), cần đủ giờ sinh. Chi tiết nằm trên trang Thuận Thiên (mục sách) — mình không gửi link trong chat."
     },
     {
       priority: 83,
@@ -209,7 +235,7 @@
         "sach", "ebook", "mua sach thuan", "sach thuan thien", "combo sach", "video la so", "video lá số", "battu kem sach"
       ],
       reply:
-        "Sách Thuận Thiên 500k (ebook + quà có video lá số): form, CK, bill Cát Tường — thuanthienkinhdich.com/sachthuanthien."
+        "Sách Thuận Thiên 500k (ebook + quà có video lá số): làm theo form và chuyển khoản trên trang Thuận Thiên (mục sách), gửi bill cho trợ lý đúng hướng dẫn. Mình không gửi link trong chat."
     },
     {
       priority: 86,
@@ -247,7 +273,7 @@
         "landing form zalo", "form zalo khac", "khac voi form bat tu", "form tren web khac"
       ],
       reply:
-        "Mỗi món một link riêng. Bạn nói quẻ, sách hay LUCK — mình chỉ một chỗ. Form đỏ trang này là danh sách chờ."
+        "Mỗi món có cổng riêng trên trang Thuận Thiên — mình không gửi link trong chat. Bạn nói rõ quẻ, sách hay LUCK, mình gợi đúng nhánh. Form đỏ trên trang này là danh sách chờ."
     },
     {
       priority: 70,
@@ -265,7 +291,7 @@
         "lich ranh", "co gap cuoi tuan khong", "cuoi tuan co xem duoc khong", "chu nhat co xem duoc khong"
       ],
       reply:
-        "Lịch chiều T2–T7. Chỉ rảnh CN thì ghi rõ form hoặc nhắn Cát Tường để khỏi hẹn trật."
+        "Lịch chiều thứ Hai đến thứ Bảy. Chỉ rảnh chủ nhật thì ghi rõ trong form để trợ lý xếp cho khỏi trật lịch nhé."
     },
     {
       priority: 62,
@@ -283,7 +309,7 @@
         "co doi van duoc khong", "xem roi co doi van"
       ],
       reply:
-        "Không hứa đổi vận bằng lễ. Việc gần cần siết rủi ro → quẻ; nền tiền và quyết định dài → LUCK. Nhắn quẻ hoặc LUCK."
+        "Không hứa đổi vận bằng lễ. Việc gần cần siết rủi ro thì hay cân nhắc quẻ; nền tiền và quyết định dài hơi thì có hướng LUCK. Bạn đang kẹt đoạn nào hơn?"
     },
     {
       priority: 56,
@@ -297,11 +323,34 @@
     {
       priority: 32,
       keys: [
-        "gia", "phí", "phi ", "bao nhieu tien", "het bao nhieu", "muc phi", "chi phi", "bao tien", "xin gia", "200k", "500k", "800k", "1500k",
+        "gia", "phí", "phi ", "bao nhieu", "bao nhieu tien", "het bao nhieu", "muc phi", "chi phi", "bao tien", "xin gia", "200k", "500k", "800k", "1500k",
         "phi tim sim", "bao nhieu mot lan"
       ],
       reply:
-        "Chưa rõ món thì khó báo giá. Nhắn một chữ: quẻ, sách, LUCK, luận số, tìm sim, hoặc ngày giờ — mình nói một mức đúng trang."
+        "Mình chưa biết bạn đang hỏi món nào nên chưa báo đúng một mức được. Bạn cho mình biết bạn quan tâm quẻ Kinh Dịch, sách, LUCK, luận số, tìm sim hay ngày giờ — mình báo giá gọn trong một câu nhé."
+    },
+    {
+      priority: 100,
+      keys: [
+        "lam sao de xem que kinh",
+        "lam sao de xem que",
+        "lam sao de duoc xem que",
+        "lam sao de duoc xem kinh dich",
+        "cac buoc xem que",
+        "cac buoc dang ky xem",
+        "cac buoc hoi kinh dich",
+        "huong dan gieo que",
+        "huong dan xem que",
+        "quy trinh xem que",
+        "dang ky xem que kinh",
+        "lam the nao de hoi que",
+        "lam the nao de duoc luận que",
+        "bieu mau xem que",
+        "lam sao de duoc luận",
+        "nhu the nao de xem kinh dich"
+      ],
+      reply:
+        "Để được xem quẻ Kinh Dịch, bạn làm lần lượt nhé: (1) Trao đổi với trợ lý để chốt một câu hỏi rõ — chưa rút quẻ vội. (2) Gieo quẻ đúng quy tắc: rút tiền ngẫu nhiên, ghi số seri và ngày giờ rút. (3) Gửi tin Facebook Thuận Thiên: câu hỏi, seri, ngày giờ rút (có thể kèm ngày giờ sinh nếu có). (4) Chuyển khoản phí 200k trước khi xếp lịch — đối chiếu tên thụ hưởng và STK trên trang chính thức khi chuyển. (5) Nhận luận qua tin nhắn (thường 1–3 ngày sau khi đủ bước), chỗ nào chưa hiểu thì hỏi thêm. Mình không gửi link trong chat; bạn cứ làm theo thứ tự này hoặc mở trang Thuận Thiên để đối chiếu chi tiết."
     }
   ];
 
@@ -337,6 +386,10 @@
     if (!raw) return null;
     var u = norm(raw);
     if (u.length < 2) return null;
+
+    if (isKinhDichPriceOnly(u)) {
+      return "Xem một quẻ Kinh Dịch giá là 200k bạn nhé";
+    }
 
     var rows = [];
     var i;
@@ -414,7 +467,7 @@
       "</svg></button>" +
       '<div class="tt-chat-panel" role="dialog" aria-label="Chat tư vấn Thuận Thiên">' +
       '<div class="tt-chat-header">' +
-      '<div><div class="tt-chat-header-title">Thuận Thiên</div><div class="tt-chat-header-sub">Theo kho /data + brandvoice — không thay tư vấn từng ca 1-1</div></div>' +
+      '<div><div class="tt-chat-header-title">Thuận Thiên</div><div class="tt-chat-header-sub">Tư vấn ngắn gọn, thân thiện — không thay tư vấn từng ca 1-1</div></div>' +
       '<button type="button" class="tt-chat-close" aria-label="Đóng chat">×</button></div>' +
       '<div class="tt-chat-messages" id="tt-chat-messages"></div>' +
       '<div class="tt-chat-input-row">' +
