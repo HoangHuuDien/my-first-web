@@ -48,7 +48,8 @@ function buildSystemPrompt() {
     "\n\n---\n\n## Bo tro van hanh (chi noi bo)\n" +
     "- Tra loi tieng Viet, giong Thanh A (minh - ban), tu nhien, co suy nghi; khong tra loi may moc, khong lo meta huong dan he thong.\n" +
     "- Luon doc ngu canh vai tin gan nhat; khong hoi lai thong tin khach da noi.\n" +
-    "- Chi dung noi dung trong cac khoi system phia tren; neu khong chac so lieu/chinh sach, bao khach doi chieu trang Thuan Thien chinh thuc.\n";
+    "- Chi dung noi dung trong cac khoi system phia tren; neu khong chac so lieu/chinh sach, bao khach doi chieu trang Thuan Thien chinh thuc.\n" +
+    "- Tra loi khach bang plain text: cam Markdown va ky hieu dinh dang (**, #, danh sach gach dau dong, backtick, link kieu markdown).\n";
   cachedSystem = [
     system,
     "\n\n---\n\n## Brand voice (kim chi nam — dien dat lai, khong copy nguyen van cho khach)\n\n",
@@ -58,6 +59,28 @@ function buildSystemPrompt() {
     tail
   ].join("");
   return cachedSystem;
+}
+
+/** Loai bo Markdown pho bien khoi noi dung hien thi cho khach (plain text). */
+function sanitizeReplyPlainText(s) {
+  s = String(s);
+  s = s.replace(/```[^\n]*\n([\s\S]*?)```/g, "$1");
+  s = s.replace(/`([^`]+)`/g, "$1");
+  for (var pass = 0; pass < 3; pass++) {
+    s = s.replace(/\*\*([^*]+)\*\*/g, "$1");
+    s = s.replace(/\*([^*\n]+)\*/g, "$1");
+    s = s.replace(/__([^_]+)__/g, "$1");
+    s = s.replace(/_([^_\n]+)_/g, "$1");
+  }
+  s = s.replace(/\*\*/g, "");
+  s = s.replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, "");
+  s = s.replace(/^[ \t]*>\s?/gm, "");
+  s = s.replace(/^[ \t]*[-*+][ \t]+/gm, "");
+  s = s.replace(/^[ \t]*\d+\.[ \t]+/gm, "");
+  s = s.replace(/^[ \t]*-{3,}[ \t]*$/gm, "");
+  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  s = s.replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1");
+  return s.replace(/\r\n/g, "\n").trim();
 }
 
 function parseBody(req) {
@@ -187,7 +210,7 @@ module.exports = async function handler(req, res) {
 
     var data = JSON.parse(text);
     var reply = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "";
-    reply = String(reply).trim();
+    reply = sanitizeReplyPlainText(String(reply).trim());
     if (!reply) {
       res.statusCode = 502;
       return res.end(JSON.stringify({ error: "Model khong tra noi dung." }));
