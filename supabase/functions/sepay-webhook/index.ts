@@ -11,8 +11,10 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 
 function isAuthorized(req: Request, expectedKey: string | undefined) {
   if (!expectedKey) return true;
-  const auth = req.headers.get("Authorization") || "";
-  return auth === "Apikey " + expectedKey;
+  const auth = (req.headers.get("Authorization") || "").trim();
+  const expected = "Apikey " + expectedKey.trim();
+  if (auth === expected) return true;
+  return auth.toLowerCase() === expected.toLowerCase();
 }
 
 async function notifyTelegram(text: string) {
