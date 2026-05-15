@@ -3,6 +3,16 @@
     "api/chat.js": {
       "maxDuration": 60,
       "includeFiles": "data/{SYSTEM_PROMPT.md,brandvoice.md,sales_script.md}"
+    },
+    "api/admin/records.js": {
+      "includeFiles": "data/brain.db"
+    },
+    "api/admin/stats.js": {
+      "includeFiles": "data/brain.db"
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/admin", "destination": "/admin/index.html" },
+    { "source": "/admin/", "destination": "/admin/index.html" }
+  ]
 }

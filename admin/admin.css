@@ -1,0 +1,270 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Be Vietnam Pro", "Segoe UI", sans-serif;
+  background: #e9e6df;
+  color: #1b1b1b;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px;
+  background: #2a2520;
+  color: #f5f0e8;
+}
+
+.top h1 {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+}
+
+.sub {
+  margin: 0;
+  opacity: 0.85;
+  font-size: 0.9rem;
+}
+
+.sub code,
+.hint code {
+  font-size: 0.82rem;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.stats {
+  font-size: 0.88rem;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 88px);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sidebar {
+  padding: 20px 16px;
+  background: #f3f0ea;
+  border-right: 1px solid #d4cfc4;
+}
+
+.lbl {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b655c;
+  margin-bottom: 8px;
+}
+
+.tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.tabs button {
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid #d4cfc4;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tabs button.active {
+  background: #8b1e1e;
+  color: #fff;
+  border-color: #8b1e1e;
+}
+
+#search {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d4cfc4;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font: inherit;
+}
+
+.btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: #8b1e1e;
+  color: #fff;
+}
+
+.btn.secondary {
+  background: #fff;
+  border: 1px solid #d4cfc4;
+}
+
+.btn.danger {
+  background: #5c1515;
+  color: #fff;
+}
+
+.hint {
+  margin-top: 16px;
+  font-size: 0.78rem;
+  color: #6b655c;
+  line-height: 1.5;
+}
+
+.panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  min-height: 400px;
+}
+
+@media (max-width: 1100px) {
+  .panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+.list-wrap {
+  padding: 16px;
+  overflow: auto;
+  border-right: 1px solid #d4cfc4;
+  max-height: calc(100vh - 88px);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+th,
+td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #e0dbd2;
+}
+
+th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: #6b655c;
+}
+
+tbody tr {
+  cursor: pointer;
+}
+
+tbody tr:hover,
+tbody tr.selected {
+  background: #fff;
+}
+
+.empty {
+  color: #6b655c;
+  font-size: 0.9rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.editor {
+  padding: 16px 20px;
+  background: #fff;
+  overflow: auto;
+  max-height: calc(100vh - 88px);
+}
+
+.editor h2 {
+  margin: 0 0 14px;
+  font-size: 1.1rem;
+}
+
+.editor label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #4a4540;
+}
+
+.editor input,
+.editor textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid #d4cfc4;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 400;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actions .btn {
+  width: auto;
+  min-width: 100px;
+}
+
+.msg {
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+.msg.ok {
+  color: #1a5c34;
+}
+
+.msg.err {
+  color: #8b1e1e;
+}
+
+body[data-table="products"] .customers-only,
+body[data-table="products"] .orders-only,
+body[data-table="customers"] .products-only,
+body[data-table="customers"] .orders-only,
+body[data-table="orders"] .products-only,
+body[data-table="orders"] .customers-only {
+  display: none;
+}

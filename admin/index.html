@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin — Brain DB | Thuận Thiên</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Brain Admin</h1>
+      <p class="sub">Quản lý <strong>products</strong> · <strong>customers</strong> · <strong>orders</strong> từ <code>brain.db</code></p>
+    </div>
+    <div class="stats" id="stats" aria-live="polite">Đang tải thống kê…</div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <label class="lbl" for="search">Bảng &amp; tìm kiếm</label>
+      <nav class="tabs" id="tabs">
+        <button type="button" data-table="products" class="active">Sản phẩm</button>
+        <button type="button" data-table="customers">Khách hàng</button>
+        <button type="button" data-table="orders">Orders / FAQ</button>
+      </nav>
+      <input type="search" id="search" placeholder="Tiêu đề, slug, đường dẫn…">
+      <button type="button" class="btn secondary" id="btn-refresh">Làm mới danh sách</button>
+      <button type="button" class="btn primary" id="btn-new">+ Thêm bản ghi</button>
+      <p class="hint">Đồng bộ từ <code>/data</code>:<br><code>python my-brain/sync_data_to_brain.py</code></p>
+    </aside>
+
+    <section class="panel">
+      <div class="list-wrap">
+        <table>
+          <thead id="list-head"></thead>
+          <tbody id="list-body"></tbody>
+        </table>
+        <p id="list-empty" class="empty hidden">Chưa có bản ghi.</p>
+      </div>
+
+      <article class="editor hidden" id="editor">
+        <h2 id="editor-title">Chi tiết</h2>
+        <form id="form">
+          <input type="hidden" name="id" id="f-id">
+          <div class="grid">
+            <label>Slug <input name="slug" id="f-slug" required></label>
+            <label>Source path <input name="source_path" id="f-source" required></label>
+          </div>
+          <label>Tiêu đề <input name="title" id="f-title" required></label>
+          <label class="extra products-only">Gợi ý giá <input name="price_hint" id="f-price"></label>
+          <label class="extra customers-only">Tags <input name="tags" id="f-tags"></label>
+          <label class="extra orders-only">Category <input name="category" id="f-category"></label>
+          <label class="extra orders-only">Sản phẩm liên quan <input name="related_product_slug" id="f-related"></label>
+          <label>Nội dung (markdown) <textarea name="content" id="f-content" rows="14"></textarea></label>
+          <div class="actions">
+            <button type="submit" class="btn primary">Lưu</button>
+            <button type="button" class="btn danger" id="btn-delete">Xóa</button>
+            <button type="button" class="btn secondary" id="btn-cancel">Đóng</button>
+          </div>
+          <p id="form-msg" class="msg" aria-live="polite"></p>
+        </form>
+      </article>
+    </section>
+  </main>
+
+  <script src="admin.js"></script>
+</body>
+</html>
