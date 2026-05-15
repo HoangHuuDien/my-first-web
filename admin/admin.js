@@ -1,7 +1,7 @@
 (function () {
-  var LOADING_MS = 5000;
-  var TIMEOUT_MSG =
-    "Không thể kết nối dữ liệu, vui lòng kiểm tra lại API Key";
+  var STATS_URL = "/api/admin/stats";
+  var RECORDS_URL = "/api/admin/records";
+  var LOADING_MS = 15000;
 
   var VIEWS = {
     products: {
@@ -51,24 +51,31 @@
     },
   };
 
-  var currentView = "products";
-  var rows = [];
-  var statsToken = 0;
-  var listToken = 0;
+  var state = {
+    currentView: "products",
+    rows: [],
+    stats: null,
+    statsLoading: false,
+    listLoading: false,
+  };
 
-  var elStats = document.getElementById("stats");
-  var elBanner = document.getElementById("admin-banner");
-  var elHead = document.getElementById("list-head");
-  var elBody = document.getElementById("list-body");
-  var elEmpty = document.getElementById("list-empty");
-  var elEditor = document.getElementById("editor");
-  var elFormContent = document.getElementById("form-content");
-  var elFormOrder = document.getElementById("form-order");
-  var elMsg = document.getElementById("form-msg");
-  var btnNew = document.getElementById("btn-new");
+  var elStats;
+  var elBanner;
+  var elHead;
+  var elBody;
+  var elEmpty;
+  var elEditor;
+  var elFormContent;
+  var elFormOrder;
+  var elMsg;
+  var btnNew;
+
+  function apiUrl(path) {
+    return new URL(path, window.location.origin).href;
+  }
 
   function cfg() {
-    return VIEWS[currentView];
+    return VIEWS[state.currentView];
   }
 
   function escapeHtml(s) {
@@ -88,8 +95,7 @@
   }
 
   function formatMoney(n) {
-    var num = Number(n) || 0;
-    return num.toLocaleString("vi-VN") + "đ";
+    return (Number(n) || 0).toLocaleString("vi-VN") + "đ";
   }
 
   function formatDate(iso) {
@@ -102,8 +108,7 @@
   }
 
   function formatError(err) {
-    if (!err) return TIMEOUT_MSG;
-    if (err.name === "AbortError") return TIMEOUT_MSG;
+    if (!err) return "Lỗi không xác định";
     if (typeof err === "string") return err;
     return err.message || String(err);
   }
@@ -120,68 +125,102 @@
     elBanner.classList.toggle("err", !!isError);
   }
 
-  function setStatsText(text, state) {
-    elStats.textContent = text;
-    elStats.classList.remove("loading", "err", "ok");
-    if (state) elStats.classList.add(state);
-  }
-
-  function setEmptyMessage(text, show, isError) {
-    elEmpty.textContent = text || "Không có dữ liệu";
-    elEmpty.classList.toggle("hidden", !show);
-    elEmpty.classList.toggle("err", !!isError);
-  }
-
-  function withLoadingTimeout(tokenRef, onTimeout) {
-    return setTimeout(function () {
-      if (tokenRef.current) onTimeout();
-    }, LOADING_MS);
-  }
-
-  async function apiJson(path, options) {
-    var ctrl = new AbortController();
-    var timer = setTimeout(function () {
-      ctrl.abort();
-    }, LOADING_MS);
-
-    try {
-      var res = await fetch(path, {
-        method: (options && options.method) || "GET",
-        headers: Object.assign(
-          { Accept: "application/json" },
-          (options && options.headers) || {}
-        ),
-        body: options && options.body,
-        signal: ctrl.signal,
-      });
-      clearTimeout(timer);
-
-      var json = null;
-      try {
-        json = await res.json();
-      } catch (parseErr) {
-        if (!res.ok) {
-          throw new Error("HTTP " + res.status + " — phản hồi không hợp lệ");
-        }
-        throw parseErr;
+  function applyStatsToUi() {
+    if (!elStats) return;
+    var s = state.stats;
+    if (!s) {
+      if (state.statsLoading) {
+        elStats.textContent = "Đang tải thống kê…";
+        elStats.className = "stats loading";
       }
-
-      if (!res.ok) {
-        var msg =
-          (json && json.error) ||
-          "HTTP " + res.status + (json && json.code ? " (" + json.code + ")" : "");
-        if (res.status === 503) {
-          msg =
-            (json && json.error) ||
-            "Thiếu SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY trên Vercel.";
-        }
-        throw new Error(msg);
-      }
-      return json;
-    } catch (e) {
-      clearTimeout(timer);
-      throw e;
+      return;
     }
+    elStats.textContent =
+      "SP: " +
+      (s.products || 0) +
+      " · KH: " +
+      (s.customers || 0) +
+      " · FAQ: " +
+      (s.knowledge || 0) +
+      " · Đơn: " +
+      (s.orders || 0);
+    elStats.className = "stats ok";
+  }
+
+  function setStatsError(message) {
+    state.statsLoading = false;
+    state.stats = null;
+    if (!elStats) return;
+    elStats.textContent = message;
+    elStats.className = "stats err";
+  }
+
+  function fetchJson(url, options) {
+    var timeout = new Promise(function (_, reject) {
+      setTimeout(function () {
+        reject(
+          new Error(
+            "Không thể kết nối dữ liệu, vui lòng kiểm tra lại API Key"
+          )
+        );
+      }, LOADING_MS);
+    });
+
+    var request = fetch(url, options || {}).then(function (res) {
+      return res.text().then(function (text) {
+        var data = null;
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            if (!res.ok) {
+              throw new Error("HTTP " + res.status + " — phản hồi không phải JSON");
+            }
+            throw e;
+          }
+        }
+        if (!res.ok) {
+          throw new Error(
+            (data && data.error) || "HTTP " + res.status
+          );
+        }
+        return data;
+      });
+    });
+
+    return Promise.race([request, timeout]);
+  }
+
+  function fetchStats() {
+    state.statsLoading = true;
+    applyStatsToUi();
+
+    var url = apiUrl(STATS_URL);
+    console.log("[Admin] Fetch stats:", url);
+
+    return fetchJson(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    })
+      .then(function (data) {
+        console.log("Data from API:", data);
+        state.statsLoading = false;
+        state.stats = {
+          products: data.products || 0,
+          customers: data.customers || 0,
+          knowledge: data.knowledge || 0,
+          orders: data.orders || 0,
+        };
+        applyStatsToUi();
+        showBanner("", false);
+      })
+      .catch(function (err) {
+        console.error("[Admin] Stats error:", err);
+        var msg = "Lỗi thống kê: " + formatError(err);
+        setStatsError(msg);
+        showBanner(msg, true);
+      });
   }
 
   function renderStatusBadge(status) {
@@ -201,86 +240,17 @@
     return escapeHtml(s);
   }
 
-  async function loadStats() {
-    var token = ++statsToken;
-    var tokenRef = { current: true };
-    setStatsText("Đang tải thống kê…", "loading");
-
-    var timeoutId = withLoadingTimeout(tokenRef, function () {
-      if (token !== statsToken) return;
-      setStatsText(TIMEOUT_MSG, "err");
-      showBanner(TIMEOUT_MSG, true);
-    });
-
-    try {
-      var data = await apiJson("/api/admin/stats");
-      if (token !== statsToken) return;
-      tokenRef.current = false;
-      clearTimeout(timeoutId);
-
-      setStatsText(
-        "SP: " +
-          (data.products || 0) +
-          " · KH: " +
-          (data.customers || 0) +
-          " · FAQ: " +
-          (data.knowledge || 0) +
-          " · Đơn: " +
-          (data.orders || 0),
-        "ok"
-      );
-      showBanner("", false);
-    } catch (e) {
-      if (token !== statsToken) return;
-      tokenRef.current = false;
-      clearTimeout(timeoutId);
-      var msg = formatError(e);
-      setStatsText("Lỗi thống kê: " + msg, "err");
-      showBanner("Thống kê: " + msg, true);
-    }
-  }
-
-  async function loadList() {
-    var token = ++listToken;
-    var tokenRef = { current: true };
-    var view = cfg();
-    elBody.innerHTML = "";
-    setEmptyMessage("Đang tải…", true, false);
-
-    var timeoutId = withLoadingTimeout(tokenRef, function () {
-      if (token !== listToken) return;
-      rows = [];
-      renderList();
-      setEmptyMessage(TIMEOUT_MSG, true, true);
-    });
-
-    var q = document.getElementById("search").value.trim();
-    var url =
-      "/api/admin/records?view=" +
-      encodeURIComponent(currentView) +
-      (q ? "&q=" + encodeURIComponent(q) : "");
-
-    try {
-      var res = await apiJson(url);
-      if (token !== listToken) return;
-      tokenRef.current = false;
-      clearTimeout(timeoutId);
-      rows = res.data || [];
-      renderList();
-    } catch (e) {
-      if (token !== listToken) return;
-      tokenRef.current = false;
-      clearTimeout(timeoutId);
-      rows = [];
-      renderList();
-      var msg = formatError(e);
-      setEmptyMessage("Lỗi: " + msg, true, true);
-      showBanner("Danh sách (" + view.label + "): " + msg, true);
-    }
+  function setEmptyMessage(text, show, isError) {
+    if (!elEmpty) return;
+    elEmpty.textContent = text || "Không có dữ liệu";
+    elEmpty.classList.toggle("hidden", !show);
+    elEmpty.classList.toggle("err", !!isError);
   }
 
   function renderList() {
     var view = cfg();
+    if (!elHead || !elBody) return;
+
     elHead.innerHTML =
       "<tr>" +
       view.listColumns
@@ -290,7 +260,7 @@
         .join("") +
       "</tr>";
 
-    elBody.innerHTML = rows
+    elBody.innerHTML = state.rows
       .map(function (row) {
         return (
           "<tr data-id=\"" +
@@ -306,13 +276,50 @@
       })
       .join("");
 
-    setEmptyMessage("Không có dữ liệu", rows.length === 0, false);
+    setEmptyMessage("Không có dữ liệu", state.rows.length === 0, false);
 
     elBody.querySelectorAll("tr").forEach(function (tr) {
       tr.addEventListener("click", function () {
         openRow(Number(tr.getAttribute("data-id")));
       });
     });
+  }
+
+  function fetchList() {
+    state.listLoading = true;
+    if (elBody) elBody.innerHTML = "";
+    setEmptyMessage("Đang tải…", true, false);
+
+    var qEl = document.getElementById("search");
+    var q = qEl ? qEl.value.trim() : "";
+    var path =
+      RECORDS_URL +
+      "?view=" +
+      encodeURIComponent(state.currentView) +
+      (q ? "&q=" + encodeURIComponent(q) : "");
+    var url = apiUrl(path);
+
+    console.log("[Admin] Fetch list:", url);
+
+    return fetchJson(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    })
+      .then(function (res) {
+        state.listLoading = false;
+        state.rows = (res && res.data) || [];
+        renderList();
+      })
+      .catch(function (err) {
+        console.error("[Admin] List error:", err);
+        state.listLoading = false;
+        state.rows = [];
+        renderList();
+        var msg = "Lỗi: " + formatError(err);
+        setEmptyMessage(msg, true, true);
+        showBanner("Danh sách (" + cfg().label + "): " + msg, true);
+      });
   }
 
   function showContentForm() {
@@ -326,72 +333,82 @@
   }
 
   function updateFieldVisibility() {
-    document.body.setAttribute("data-view", currentView);
+    document.body.setAttribute("data-view", state.currentView);
     var isSales = cfg().kind === "sales";
-    btnNew.style.display = isSales ? "none" : "block";
-    document.getElementById("search").placeholder = isSales
-      ? "Tìm khách, SĐT, trạng thái…"
-      : "Tìm tiêu đề, slug, đường dẫn…";
+    if (btnNew) btnNew.style.display = isSales ? "none" : "block";
+    var search = document.getElementById("search");
+    if (search) {
+      search.placeholder = isSales
+        ? "Tìm khách, SĐT, trạng thái…"
+        : "Tìm tiêu đề, slug, đường dẫn…";
+    }
   }
 
-  async function openRow(id) {
+  function openRow(id) {
     elMsg.textContent = "";
     elMsg.className = "msg";
     var view = cfg();
+    var url = apiUrl(
+      RECORDS_URL +
+        "?view=" +
+        encodeURIComponent(state.currentView) +
+        "&id=" +
+        encodeURIComponent(String(id))
+    );
 
-    try {
-      var res = await apiJson(
-        "/api/admin/records?view=" +
-          encodeURIComponent(currentView) +
-          "&id=" +
-          encodeURIComponent(String(id))
-      );
-      var row = res.data;
-      if (!row) throw new Error("Không tìm thấy bản ghi.");
+    fetchJson(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    })
+      .then(function (res) {
+        var row = res && res.data;
+        if (!row) throw new Error("Không tìm thấy bản ghi.");
 
-      if (view.kind === "sales") {
-        showOrderForm();
-        document.getElementById("o-id").value = row.id;
-        document.getElementById("o-name").value = row.customer_name || "";
-        document.getElementById("o-phone").value = row.customer_phone || "";
-        document.getElementById("o-email").value = row.customer_email || "";
-        document.getElementById("o-amount").value = row.amount || 0;
-        document.getElementById("o-status").value =
-          row.status === "success" ? "success" : "pending";
-        document.getElementById("o-note").value = row.product_note || "";
-        document.getElementById("o-transfer").value =
-          row.transfer_content || "";
-        document.getElementById("o-created").textContent =
-          "Ngày mua: " + formatDate(row.created_at);
-        document.getElementById("editor-title").textContent =
-          "Đơn #" + row.id + " — " + (row.customer_name || "Khách");
-      } else {
-        showContentForm();
-        document.getElementById("f-id").value = row.id;
-        document.getElementById("f-slug").value = row.slug || "";
-        document.getElementById("f-source").value = row.source_path || "";
-        document.getElementById("f-title").value = row.title || "";
-        document.getElementById("f-content").value = row.content || "";
-        document.getElementById("f-price").value = row.price_hint || "";
-        document.getElementById("f-tags").value = row.tags || "";
-        document.getElementById("f-category").value = row.category || "";
-        document.getElementById("f-related").value =
-          row.related_product_slug || "";
-        document.getElementById("editor-title").textContent =
-          row.title || "Chi tiết";
-      }
+        if (view.kind === "sales") {
+          showOrderForm();
+          document.getElementById("o-id").value = row.id;
+          document.getElementById("o-name").value = row.customer_name || "";
+          document.getElementById("o-phone").value = row.customer_phone || "";
+          document.getElementById("o-email").value = row.customer_email || "";
+          document.getElementById("o-amount").value = row.amount || 0;
+          document.getElementById("o-status").value =
+            row.status === "success" ? "success" : "pending";
+          document.getElementById("o-note").value = row.product_note || "";
+          document.getElementById("o-transfer").value =
+            row.transfer_content || "";
+          document.getElementById("o-created").textContent =
+            "Ngày mua: " + formatDate(row.created_at);
+          document.getElementById("editor-title").textContent =
+            "Đơn #" + row.id + " — " + (row.customer_name || "Khách");
+        } else {
+          showContentForm();
+          document.getElementById("f-id").value = row.id;
+          document.getElementById("f-slug").value = row.slug || "";
+          document.getElementById("f-source").value = row.source_path || "";
+          document.getElementById("f-title").value = row.title || "";
+          document.getElementById("f-content").value = row.content || "";
+          document.getElementById("f-price").value = row.price_hint || "";
+          document.getElementById("f-tags").value = row.tags || "";
+          document.getElementById("f-category").value = row.category || "";
+          document.getElementById("f-related").value =
+            row.related_product_slug || "";
+          document.getElementById("editor-title").textContent =
+            row.title || "Chi tiết";
+        }
 
-      elEditor.classList.remove("hidden");
-      elBody.querySelectorAll("tr").forEach(function (tr) {
-        tr.classList.toggle(
-          "selected",
-          Number(tr.getAttribute("data-id")) === id
-        );
+        elEditor.classList.remove("hidden");
+        elBody.querySelectorAll("tr").forEach(function (tr) {
+          tr.classList.toggle(
+            "selected",
+            Number(tr.getAttribute("data-id")) === id
+          );
+        });
+      })
+      .catch(function (e) {
+        elMsg.className = "msg err";
+        elMsg.textContent = formatError(e);
       });
-    } catch (e) {
-      elMsg.className = "msg err";
-      elMsg.textContent = formatError(e);
-    }
   }
 
   function closeEditor() {
@@ -404,170 +421,204 @@
 
   function setView(viewKey) {
     if (!VIEWS[viewKey]) return;
-    currentView = viewKey;
+    state.currentView = viewKey;
     document.querySelectorAll("#tabs button").forEach(function (b) {
       b.classList.toggle("active", b.getAttribute("data-view") === viewKey);
     });
     updateFieldVisibility();
     closeEditor();
-    loadList();
-    loadStats();
+    fetchList();
+    fetchStats();
   }
 
-  document.getElementById("tabs").addEventListener("click", function (e) {
-    var btn = e.target.closest("button[data-view]");
-    if (btn) setView(btn.getAttribute("data-view"));
-  });
+  function bindEvents() {
+    document.getElementById("tabs").addEventListener("click", function (e) {
+      var btn = e.target.closest("button[data-view]");
+      if (btn) setView(btn.getAttribute("data-view"));
+    });
 
-  document.getElementById("search").addEventListener("input", debounce(loadList, 300));
-  document.getElementById("btn-refresh").addEventListener("click", function () {
-    showBanner("", false);
-    loadList();
-    loadStats();
-  });
-  document.getElementById("btn-cancel").addEventListener("click", closeEditor);
-  document.getElementById("btn-cancel-order").addEventListener("click", closeEditor);
+    document
+      .getElementById("search")
+      .addEventListener("input", debounce(fetchList, 300));
 
-  btnNew.addEventListener("click", function () {
-    if (cfg().kind === "sales") return;
-    closeEditor();
-    showContentForm();
-    document.getElementById("f-id").value = "";
-    document.getElementById("f-slug").value = "moi-" + Date.now();
-    document.getElementById("f-source").value =
-      "manual/" + cfg().table + "/" + Date.now() + ".md";
-    document.getElementById("editor-title").textContent = "Thêm mới";
-    elEditor.classList.remove("hidden");
-    elMsg.textContent = "";
-  });
+    document.getElementById("btn-refresh").addEventListener("click", function () {
+      showBanner("", false);
+      fetchList();
+      fetchStats();
+    });
 
-  elFormContent.addEventListener("submit", async function (e) {
-    e.preventDefault();
-    var view = cfg();
-    if (view.kind !== "content") return;
+    document.getElementById("btn-cancel").addEventListener("click", closeEditor);
+    document
+      .getElementById("btn-cancel-order")
+      .addEventListener("click", closeEditor);
 
-    var id = document.getElementById("f-id").value;
-    var payload = {
-      source_path: document.getElementById("f-source").value,
-      slug: document.getElementById("f-slug").value,
-      title: document.getElementById("f-title").value,
-      content: document.getElementById("f-content").value,
-      updated_at: new Date().toISOString(),
-    };
-    if (currentView === "products") {
-      payload.price_hint = document.getElementById("f-price").value || null;
-    } else if (currentView === "customers") {
-      payload.tags = document.getElementById("f-tags").value || null;
-    } else if (currentView === "knowledge") {
-      payload.category = document.getElementById("f-category").value || null;
-      payload.related_product_slug =
-        document.getElementById("f-related").value || null;
-    }
+    btnNew.addEventListener("click", function () {
+      if (cfg().kind === "sales") return;
+      closeEditor();
+      showContentForm();
+      document.getElementById("f-id").value = "";
+      document.getElementById("f-slug").value = "moi-" + Date.now();
+      document.getElementById("f-source").value =
+        "manual/" + cfg().table + "/" + Date.now() + ".md";
+      document.getElementById("editor-title").textContent = "Thêm mới";
+      elEditor.classList.remove("hidden");
+      elMsg.textContent = "";
+    });
 
-    try {
-      if (id) {
-        await apiJson("/api/admin/records", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            view: currentView,
-            id: Number(id),
-            payload: payload,
-          }),
-        });
-      } else {
-        await apiJson("/api/admin/records", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ view: currentView, payload: payload }),
-        });
+    elFormContent.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (cfg().kind !== "content") return;
+
+      var id = document.getElementById("f-id").value;
+      var payload = {
+        source_path: document.getElementById("f-source").value,
+        slug: document.getElementById("f-slug").value,
+        title: document.getElementById("f-title").value,
+        content: document.getElementById("f-content").value,
+        updated_at: new Date().toISOString(),
+      };
+      if (state.currentView === "products") {
+        payload.price_hint = document.getElementById("f-price").value || null;
+      } else if (state.currentView === "customers") {
+        payload.tags = document.getElementById("f-tags").value || null;
+      } else if (state.currentView === "knowledge") {
+        payload.category = document.getElementById("f-category").value || null;
+        payload.related_product_slug =
+          document.getElementById("f-related").value || null;
       }
-      elMsg.className = "msg ok";
-      elMsg.textContent = "Đã lưu.";
-      await loadList();
-      await loadStats();
-      if (!id) closeEditor();
-    } catch (err) {
-      elMsg.className = "msg err";
-      elMsg.textContent = formatError(err);
-    }
-  });
 
-  elFormOrder.addEventListener("submit", async function (e) {
-    e.preventDefault();
-    var id = document.getElementById("o-id").value;
-    if (!id) return;
-    var payload = {
-      customer_name: document.getElementById("o-name").value,
-      customer_phone: document.getElementById("o-phone").value || null,
-      customer_email: document.getElementById("o-email").value || null,
-      amount: Number(document.getElementById("o-amount").value) || 0,
-      status: document.getElementById("o-status").value,
-      product_note: document.getElementById("o-note").value || null,
-      updated_at: new Date().toISOString(),
-    };
-    try {
-      await apiJson("/api/admin/records", {
+      var req = id
+        ? fetchJson(apiUrl(RECORDS_URL), {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              view: state.currentView,
+              id: Number(id),
+              payload: payload,
+            }),
+          })
+        : fetchJson(apiUrl(RECORDS_URL), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ view: state.currentView, payload: payload }),
+          });
+
+      req
+        .then(function () {
+          elMsg.className = "msg ok";
+          elMsg.textContent = "Đã lưu.";
+          return fetchList().then(fetchStats);
+        })
+        .then(function () {
+          if (!id) closeEditor();
+        })
+        .catch(function (err) {
+          elMsg.className = "msg err";
+          elMsg.textContent = formatError(err);
+        });
+    });
+
+    elFormOrder.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var id = document.getElementById("o-id").value;
+      if (!id) return;
+      var payload = {
+        customer_name: document.getElementById("o-name").value,
+        customer_phone: document.getElementById("o-phone").value || null,
+        customer_email: document.getElementById("o-email").value || null,
+        amount: Number(document.getElementById("o-amount").value) || 0,
+        status: document.getElementById("o-status").value,
+        product_note: document.getElementById("o-note").value || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      fetchJson(apiUrl(RECORDS_URL), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          view: "orders",
-          id: Number(id),
-          payload: payload,
-        }),
+        body: JSON.stringify({ view: "orders", id: Number(id), payload: payload }),
+      })
+        .then(function () {
+          elMsg.className = "msg ok";
+          elMsg.textContent = "Đã cập nhật đơn.";
+          return fetchList().then(fetchStats);
+        })
+        .catch(function (err) {
+          elMsg.className = "msg err";
+          elMsg.textContent = formatError(err);
+        });
+    });
+
+    document.getElementById("btn-delete").addEventListener("click", function () {
+      if (cfg().kind !== "content") return;
+      var id = document.getElementById("f-id").value;
+      if (!id || !confirm("Xóa bản ghi này?")) return;
+
+      fetchJson(
+        apiUrl(
+          RECORDS_URL +
+            "?view=" +
+            encodeURIComponent(state.currentView) +
+            "&id=" +
+            encodeURIComponent(id)
+        ),
+        { method: "DELETE" }
+      )
+        .then(function () {
+          closeEditor();
+          return fetchList().then(fetchStats);
+        })
+        .catch(function (err) {
+          elMsg.className = "msg err";
+          elMsg.textContent = formatError(err);
+        });
+    });
+
+    document
+      .getElementById("btn-delete-order")
+      .addEventListener("click", function () {
+        var id = document.getElementById("o-id").value;
+        if (!id || !confirm("Xóa đơn hàng này?")) return;
+
+        fetchJson(
+          apiUrl(RECORDS_URL + "?view=orders&id=" + encodeURIComponent(id)),
+          { method: "DELETE" }
+        )
+          .then(function () {
+            closeEditor();
+            return fetchList().then(fetchStats);
+          })
+          .catch(function (err) {
+            elMsg.className = "msg err";
+            elMsg.textContent = formatError(err);
+          });
       });
-      elMsg.className = "msg ok";
-      elMsg.textContent = "Đã cập nhật đơn.";
-      await loadList();
-      await loadStats();
-    } catch (err) {
-      elMsg.className = "msg err";
-      elMsg.textContent = formatError(err);
-    }
-  });
+  }
 
-  document.getElementById("btn-delete").addEventListener("click", async function () {
-    var view = cfg();
-    if (view.kind !== "content") return;
-    var id = document.getElementById("f-id").value;
-    if (!id || !confirm("Xóa bản ghi này?")) return;
-    try {
-      await apiJson(
-        "/api/admin/records?view=" +
-          encodeURIComponent(currentView) +
-          "&id=" +
-          encodeURIComponent(id),
-        { method: "DELETE" }
-      );
-      closeEditor();
-      await loadList();
-      await loadStats();
-    } catch (err) {
-      elMsg.className = "msg err";
-      elMsg.textContent = formatError(err);
-    }
-  });
+  function init() {
+    elStats = document.getElementById("stats");
+    elBanner = document.getElementById("admin-banner");
+    elHead = document.getElementById("list-head");
+    elBody = document.getElementById("list-body");
+    elEmpty = document.getElementById("list-empty");
+    elEditor = document.getElementById("editor");
+    elFormContent = document.getElementById("form-content");
+    elFormOrder = document.getElementById("form-order");
+    elMsg = document.getElementById("form-msg");
+    btnNew = document.getElementById("btn-new");
 
-  document.getElementById("btn-delete-order").addEventListener("click", async function () {
-    var id = document.getElementById("o-id").value;
-    if (!id || !confirm("Xóa đơn hàng này?")) return;
-    try {
-      await apiJson(
-        "/api/admin/records?view=orders&id=" + encodeURIComponent(id),
-        { method: "DELETE" }
-      );
-      closeEditor();
-      await loadList();
-      await loadStats();
-    } catch (err) {
-      elMsg.className = "msg err";
-      elMsg.textContent = formatError(err);
+    if (!elStats) {
+      console.error("[Admin] Không tìm thấy #stats");
+      return;
     }
-  });
 
-  function boot() {
+    console.log("[Admin] Khởi động — API:", apiUrl(STATS_URL));
+    bindEvents();
     setView("products");
   }
 
-  boot();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
