@@ -29,6 +29,51 @@ function matchesPaymentCode(data: Record<string, unknown>) {
   return paymentHaystack(data).includes(PAYMENT_CODE);
 }
 
+async function insertSalesOrder(
+  data: Record<string, unknown>,
+  amount: number,
+  status: "pending" | "success",
+) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) {
+    console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for orders insert");
+    return { ok: false, reason: "missing_supabase_secrets" };
+  }
+
+  const content = String(data.content || "").trim();
+  const row = {
+    customer_name: content ? content.slice(0, 120) : "Khách SePay",
+    customer_phone: null,
+    customer_email: null,
+    amount: Math.round(amount),
+    status,
+    payment_code: String(data.code || "") || null,
+    transfer_content: content || String(data.description || "") || null,
+    product_note: matchesPaymentCode(data) ? "TVBT500" : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const res = await fetch(supabaseUrl.replace(/\/$/, "") + "/rest/v1/orders", {
+    method: "POST",
+    headers: {
+      apikey: serviceKey,
+      Authorization: "Bearer " + serviceKey,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(row),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("Supabase orders insert error:", res.status, errText);
+    return { ok: false, reason: "supabase_insert_error", detail: errText };
+  }
+
+  return { ok: true };
+}
+
 async function notifyTelegram(text: string) {
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
   const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
@@ -86,12 +131,17 @@ Deno.serve(async (req) => {
     "TK: " + String(data.accountNumber || "-") + "\n" +
     "Lúc: " + String(data.transactionDate || "-");
 
+  const orderStatus = hasCode ? "success" : "pending";
+  const orderInsert = await insertSalesOrder(data, amount, orderStatus);
   const telegram = await notifyTelegram(message);
 
   return jsonResponse({
     success: true,
     telegram_sent: telegram.ok,
     payment_code_matched: hasCode,
+    order_saved: orderInsert.ok,
+    order_status: orderStatus,
     ...(telegram.ok ? {} : { telegram_error: telegram.reason }),
+    ...(orderInsert.ok ? {} : { order_error: orderInsert.reason }),
   });
 });

@@ -7,13 +7,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/admin/admin.css?v=15">
+  <link rel="stylesheet" href="/admin/admin.css?v=16">
 </head>
 <body>
   <header class="top">
     <div>
       <h1>Brain Admin</h1>
-      <p class="sub">Quản lý <strong>products</strong> · <strong>customers</strong> · <strong>orders</strong> trên Supabase</p>
+      <p class="sub">Sản phẩm · Khách hàng · <strong>Kiến thức/FAQ</strong> · <strong>Đơn hàng</strong></p>
     </div>
     <div class="stats" id="stats" aria-live="polite">Đang tải thống kê…</div>
   </header>
@@ -22,12 +22,13 @@
     <aside class="sidebar">
       <label class="lbl" for="search">Bảng &amp; tìm kiếm</label>
       <nav class="tabs" id="tabs">
-        <button type="button" data-table="products" class="active">Sản phẩm</button>
-        <button type="button" data-table="customers">Khách hàng</button>
-        <button type="button" data-table="orders">Orders / FAQ</button>
+        <button type="button" data-view="products" class="active">Sản phẩm</button>
+        <button type="button" data-view="customers">Khách hàng</button>
+        <button type="button" data-view="knowledge">Kiến thức / FAQ</button>
+        <button type="button" data-view="orders">Đơn hàng</button>
       </nav>
-      <input type="search" id="search" placeholder="Tiêu đề, slug, đường dẫn…">
-      <button type="button" class="btn secondary" id="btn-refresh">Làm mới danh sách</button>
+      <input type="search" id="search" placeholder="Tìm theo tab đang chọn…">
+      <button type="button" class="btn secondary" id="btn-refresh">Làm mới</button>
       <button type="button" class="btn primary" id="btn-new">+ Thêm bản ghi</button>
     </aside>
 
@@ -42,25 +43,49 @@
 
       <article class="editor hidden" id="editor">
         <h2 id="editor-title">Chi tiết</h2>
-        <form id="form">
-          <input type="hidden" name="id" id="f-id">
+
+        <form id="form-content" class="editor-form">
+          <input type="hidden" id="f-id">
           <div class="grid">
-            <label>Slug <input name="slug" id="f-slug" required></label>
-            <label>Source path <input name="source_path" id="f-source" required></label>
+            <label>Slug <input id="f-slug" required></label>
+            <label>Source path <input id="f-source" required></label>
           </div>
-          <label>Tiêu đề <input name="title" id="f-title" required></label>
-          <label class="extra products-only">Gợi ý giá <input name="price_hint" id="f-price"></label>
-          <label class="extra customers-only">Tags <input name="tags" id="f-tags"></label>
-          <label class="extra orders-only">Category <input name="category" id="f-category"></label>
-          <label class="extra orders-only">Sản phẩm liên quan <input name="related_product_slug" id="f-related"></label>
-          <label>Nội dung (markdown) <textarea name="content" id="f-content" rows="14"></textarea></label>
+          <label>Tiêu đề <input id="f-title" required></label>
+          <label class="field-products">Gợi ý giá <input id="f-price"></label>
+          <label class="field-customers">Tags <input id="f-tags"></label>
+          <label class="field-knowledge">Category <input id="f-category"></label>
+          <label class="field-knowledge">Sản phẩm liên quan <input id="f-related"></label>
+          <label>Nội dung (markdown) <textarea id="f-content" rows="14"></textarea></label>
           <div class="actions">
             <button type="submit" class="btn primary">Lưu</button>
             <button type="button" class="btn danger" id="btn-delete">Xóa</button>
             <button type="button" class="btn secondary" id="btn-cancel">Đóng</button>
           </div>
-          <p id="form-msg" class="msg" aria-live="polite"></p>
         </form>
+
+        <form id="form-order" class="editor-form hidden">
+          <input type="hidden" id="o-id">
+          <label>Khách hàng <input id="o-name" required></label>
+          <label>SĐT <input id="o-phone"></label>
+          <label>Email <input id="o-email" type="email"></label>
+          <label>Số tiền (VND) <input id="o-amount" type="number" min="0" step="1000" required></label>
+          <label>Trạng thái
+            <select id="o-status" required>
+              <option value="pending">pending</option>
+              <option value="success">success</option>
+            </select>
+          </label>
+          <label>Ghi chú sản phẩm <input id="o-note"></label>
+          <label>Nội dung CK <textarea id="o-transfer" rows="3" readonly></label>
+          <p class="order-meta" id="o-created"></p>
+          <div class="actions">
+            <button type="submit" class="btn primary">Cập nhật đơn</button>
+            <button type="button" class="btn danger" id="btn-delete-order">Xóa</button>
+            <button type="button" class="btn secondary" id="btn-cancel-order">Đóng</button>
+          </div>
+        </form>
+
+        <p id="form-msg" class="msg" aria-live="polite"></p>
       </article>
     </section>
   </main>
@@ -72,6 +97,6 @@
       anonKey: "sb_publishable_FnplzjXonbDizjgOewGAGw_TKvPcZg9"
     };
   </script>
-  <script src="/admin/admin.js?v=15" defer></script>
+  <script src="/admin/admin.js?v=16" defer></script>
 </body>
 </html>
