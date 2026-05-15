@@ -17,23 +17,39 @@ function isAuthorized(req: Request, expectedKey: string | undefined) {
   return auth.toLowerCase() === expected.toLowerCase();
 }
 
+function paymentHaystack(data: Record<string, unknown>) {
+  return [data.content, data.description, data.code]
+    .map(function (v) {
+      return String(v || "");
+    })
+    .join(" ");
+}
+
+function matchesPaymentCode(data: Record<string, unknown>) {
+  return paymentHaystack(data).includes(PAYMENT_CODE);
+}
+
 async function notifyTelegram(text: string) {
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
   const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
   if (!token || !chatId) {
-    console.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID");
-    return;
+    console.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in Edge Function secrets");
+    return { ok: false, reason: "missing_telegram_secrets" };
   }
 
   const res = await fetch("https://api.telegram.org/bot" + token + "/sendMessage", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
+    body: JSON.stringify({ chat_id: chatId, text: text }),
   });
 
   if (!res.ok) {
-    console.error("Telegram error:", res.status, await res.text());
+    const errText = await res.text();
+    console.error("Telegram API error:", res.status, errText);
+    return { ok: false, reason: "telegram_api_error", detail: errText };
   }
+
+  return { ok: true };
 }
 
 Deno.serve(async (req) => {
@@ -54,26 +70,28 @@ Deno.serve(async (req) => {
   }
 
   if (data.transferType !== "in") {
-    return jsonResponse({ success: true });
-  }
-
-  const content = String(data.content || "") + " " + String(data.description || "");
-  if (!content.includes(PAYMENT_CODE)) {
-    return jsonResponse({ success: true });
+    return jsonResponse({ success: true, skipped: "not_incoming_transfer" });
   }
 
   const amount = Number(data.transferAmount || 0);
   const formatted = amount.toLocaleString("vi-VN");
+  const hasCode = matchesPaymentCode(data);
 
   const message =
-    "💰 Thanh toán SePay thành công\n\n" +
+    (hasCode ? "💰 Thanh toán SePay (mã TVBT500)\n\n" : "💰 Tiền vào tài khoản (SePay webhook)\n\n") +
     "Số tiền: " + formatted + "đ\n" +
     "Nội dung: " + String(data.content || "").trim() + "\n" +
+    "Mô tả: " + String(data.description || "").trim() + "\n" +
     "Mã: " + String(data.code || "-") + "\n" +
     "TK: " + String(data.accountNumber || "-") + "\n" +
     "Lúc: " + String(data.transactionDate || "-");
 
-  await notifyTelegram(message);
+  const telegram = await notifyTelegram(message);
 
-  return jsonResponse({ success: true });
+  return jsonResponse({
+    success: true,
+    telegram_sent: telegram.ok,
+    payment_code_matched: hasCode,
+    ...(telegram.ok ? {} : { telegram_error: telegram.reason }),
+  });
 });
