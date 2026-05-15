@@ -1,6 +1,19 @@
 (function () {
+  var TABLES = ["products", "customers", "orders"];
+  var LIST_SELECT = {
+    products: "id, source_path, slug, title, price_hint, updated_at",
+    customers: "id, source_path, slug, title, tags, updated_at",
+    orders: "id, source_path, slug, title, category, updated_at",
+  };
+  var LIST_COLUMNS = {
+    products: ["id", "title", "slug", "price_hint"],
+    customers: ["id", "title", "slug", "tags"],
+    orders: ["id", "title", "slug", "category"],
+  };
+
   var currentTable = "products";
   var rows = [];
+  var supabase = null;
 
   var elStats = document.getElementById("stats");
   var elHead = document.getElementById("list-head");
@@ -10,75 +23,103 @@
   var elForm = document.getElementById("form");
   var elMsg = document.getElementById("form-msg");
 
-  function api(path, opts) {
-    opts = opts || {};
-    return fetch(path, opts).then(function (r) {
-      return r.json().then(function (j) {
-        if (!r.ok) throw new Error(j.error || r.statusText);
-        return j;
-      });
-    });
+  function initClient() {
+    var cfg = window.__ADMIN_SUPABASE__ || {};
+    var url = (cfg.url || "").trim();
+    var key = (cfg.anonKey || "").trim();
+    if (!window.supabase || !window.supabase.createClient) {
+      throw new Error("Không tải được Supabase SDK.");
+    }
+    if (!url || !key) {
+      throw new Error("Thiếu SUPABASE_URL hoặc anon key trong cấu hình Admin.");
+    }
+    return window.supabase.createClient(url, key);
   }
 
-  function setTable(table) {
-    currentTable = table;
-    document.body.setAttribute("data-table", table);
-    document.querySelectorAll("#tabs button").forEach(function (b) {
-      b.classList.toggle("active", b.getAttribute("data-table") === table);
-    });
-    closeEditor();
-    loadList();
-    loadStats();
+  function setStatsText(text) {
+    elStats.textContent = text;
   }
 
-  function loadStats() {
-    api("/api/admin/stats")
-      .then(function (d) {
-        if (!d.ok) throw new Error(d.error);
-        elStats.textContent =
-          "Sản phẩm: " +
-          d.tables.products +
+  function setEmptyMessage(text, show) {
+    elEmpty.textContent = text || "Không có dữ liệu";
+    elEmpty.classList.toggle("hidden", !show);
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function debounce(fn, ms) {
+    var t;
+    return function () {
+      clearTimeout(t);
+      t = setTimeout(fn, ms);
+    };
+  }
+
+  async function countTable(table) {
+    var res = await supabase.from(table).select("id", { count: "exact", head: true });
+    if (res.error) throw res.error;
+    return res.count || 0;
+  }
+
+  async function loadStats() {
+    try {
+      var counts = await Promise.all(TABLES.map(countTable));
+      setStatsText(
+        "Sản phẩm: " +
+          counts[0] +
           " · Khách: " +
-          d.tables.customers +
+          counts[1] +
           " · Orders: " +
-          d.tables.orders;
-      })
-      .catch(function (e) {
-        elStats.textContent = "Lỗi: " + e.message;
-      });
+          counts[2]
+      );
+    } catch (e) {
+      setStatsText("Lỗi thống kê: " + (e.message || String(e)));
+    }
   }
 
-  function listColumns() {
-    if (currentTable === "products") {
-      return ["id", "title", "slug", "price_hint"];
-    }
-    if (currentTable === "customers") {
-      return ["id", "title", "slug", "tags"];
-    }
-    return ["id", "title", "slug", "category"];
-  }
+  async function loadList() {
+    elBody.innerHTML = "";
+    setEmptyMessage("Đang tải…", true);
 
-  function loadList() {
     var q = document.getElementById("search").value.trim();
-    var url =
-      "/api/admin/records?table=" +
-      encodeURIComponent(currentTable) +
-      (q ? "&q=" + encodeURIComponent(q) : "");
-    api(url)
-      .then(function (d) {
-        rows = d.rows || [];
-        renderList();
-      })
-      .catch(function (e) {
-        rows = [];
-        renderList();
-        elEmpty.textContent = "Lỗi tải: " + e.message;
-        elEmpty.classList.remove("hidden");
-      });
+    var query = supabase
+      .from(currentTable)
+      .select(LIST_SELECT[currentTable])
+      .order("id", { ascending: true })
+      .limit(200);
+
+    if (q) {
+      var pattern = "%" + q + "%";
+      query = query.or(
+        "title.ilike." +
+          pattern +
+          ",slug.ilike." +
+          pattern +
+          ",source_path.ilike." +
+          pattern
+      );
+    }
+
+    try {
+      var res = await query;
+      if (res.error) throw res.error;
+      rows = res.data || [];
+      renderList();
+    } catch (e) {
+      rows = [];
+      renderList();
+      setEmptyMessage("Lỗi tải: " + (e.message || String(e)), true);
+    }
   }
 
   function renderList() {
-    var cols = listColumns();
+    var cols = LIST_COLUMNS[currentTable];
     elHead.innerHTML =
       "<tr>" + cols.map(function (c) { return "<th>" + c + "</th>"; }).join("") + "</tr>";
     elBody.innerHTML = rows
@@ -98,7 +139,13 @@
         );
       })
       .join("");
-    elEmpty.classList.toggle("hidden", rows.length > 0);
+
+    if (rows.length === 0) {
+      setEmptyMessage("Không có dữ liệu", true);
+    } else {
+      setEmptyMessage("", false);
+    }
+
     elBody.querySelectorAll("tr").forEach(function (tr) {
       tr.addEventListener("click", function () {
         openRow(Number(tr.getAttribute("data-id")));
@@ -106,17 +153,17 @@
     });
   }
 
-  function escapeHtml(s) {
-    return s
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function openRow(id) {
-    api("/api/admin/records?table=" + currentTable + "&id=" + id).then(function (d) {
-      var row = d.row;
+  async function openRow(id) {
+    elMsg.textContent = "";
+    try {
+      var res = await supabase
+        .from(currentTable)
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (res.error) throw res.error;
+      if (!res.data) throw new Error("Không tìm thấy bản ghi.");
+      var row = res.data;
       document.getElementById("f-id").value = row.id;
       document.getElementById("f-slug").value = row.slug || "";
       document.getElementById("f-source").value = row.source_path || "";
@@ -128,11 +175,13 @@
       document.getElementById("f-related").value = row.related_product_slug || "";
       document.getElementById("editor-title").textContent = row.title || "Chi tiết";
       elEditor.classList.remove("hidden");
-      elMsg.textContent = "";
       elBody.querySelectorAll("tr").forEach(function (tr) {
         tr.classList.toggle("selected", Number(tr.getAttribute("data-id")) === id);
       });
-    });
+    } catch (e) {
+      elMsg.className = "msg err";
+      elMsg.textContent = e.message || String(e);
+    }
   }
 
   function closeEditor() {
@@ -141,15 +190,43 @@
     document.getElementById("f-id").value = "";
   }
 
+  function buildRowPayload() {
+    var ts = new Date().toISOString();
+    var row = {
+      source_path: document.getElementById("f-source").value,
+      slug: document.getElementById("f-slug").value,
+      title: document.getElementById("f-title").value,
+      content: document.getElementById("f-content").value,
+      updated_at: ts,
+    };
+    if (currentTable === "products") {
+      row.price_hint = document.getElementById("f-price").value || null;
+    } else if (currentTable === "customers") {
+      row.tags = document.getElementById("f-tags").value || null;
+    } else {
+      row.category = document.getElementById("f-category").value || null;
+      row.related_product_slug = document.getElementById("f-related").value || null;
+    }
+    return row;
+  }
+
+  function setTable(table) {
+    currentTable = table;
+    document.body.setAttribute("data-table", table);
+    document.querySelectorAll("#tabs button").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-table") === table);
+    });
+    closeEditor();
+    loadList();
+    loadStats();
+  }
+
   document.getElementById("tabs").addEventListener("click", function (e) {
     var btn = e.target.closest("button[data-table]");
     if (btn) setTable(btn.getAttribute("data-table"));
   });
 
-  document.getElementById("search").addEventListener(
-    "input",
-    debounce(loadList, 300)
-  );
+  document.getElementById("search").addEventListener("input", debounce(loadList, 300));
   document.getElementById("btn-refresh").addEventListener("click", loadList);
   document.getElementById("btn-cancel").addEventListener("click", closeEditor);
 
@@ -161,72 +238,56 @@
       "manual/" + currentTable + "/" + Date.now() + ".md";
     document.getElementById("editor-title").textContent = "Thêm mới";
     elEditor.classList.remove("hidden");
+    elMsg.textContent = "";
   });
 
-  elForm.addEventListener("submit", function (e) {
+  elForm.addEventListener("submit", async function (e) {
     e.preventDefault();
     var id = document.getElementById("f-id").value;
-    var body = {
-      slug: document.getElementById("f-slug").value,
-      source_path: document.getElementById("f-source").value,
-      title: document.getElementById("f-title").value,
-      content: document.getElementById("f-content").value,
-    };
-    if (currentTable === "products") {
-      body.price_hint = document.getElementById("f-price").value || null;
-    } else if (currentTable === "customers") {
-      body.tags = document.getElementById("f-tags").value || null;
-    } else {
-      body.category = document.getElementById("f-category").value || null;
-      body.related_product_slug =
-        document.getElementById("f-related").value || null;
+    var payload = buildRowPayload();
+    try {
+      if (id) {
+        var up = await supabase.from(currentTable).update(payload).eq("id", Number(id));
+        if (up.error) throw up.error;
+      } else {
+        var ins = await supabase.from(currentTable).insert([payload]).select("id").single();
+        if (ins.error) throw ins.error;
+      }
+      elMsg.className = "msg ok";
+      elMsg.textContent = "Đã lưu.";
+      await loadList();
+      await loadStats();
+      if (!id) closeEditor();
+    } catch (err) {
+      elMsg.className = "msg err";
+      elMsg.textContent = err.message || String(err);
     }
-
-    var method = id ? "PUT" : "POST";
-    if (id) body.id = Number(id);
-
-    api("/api/admin/records?table=" + currentTable, {
-      method: method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-      .then(function () {
-        elMsg.className = "msg ok";
-        elMsg.textContent = "Đã lưu.";
-        loadList();
-        loadStats();
-        if (!id && method === "POST") closeEditor();
-      })
-      .catch(function (err) {
-        elMsg.className = "msg err";
-        elMsg.textContent = err.message;
-      });
   });
 
-  document.getElementById("btn-delete").addEventListener("click", function () {
+  document.getElementById("btn-delete").addEventListener("click", async function () {
     var id = document.getElementById("f-id").value;
     if (!id || !confirm("Xóa bản ghi này?")) return;
-    api("/api/admin/records?table=" + currentTable + "&id=" + id, {
-      method: "DELETE",
-    })
-      .then(function () {
-        closeEditor();
-        loadList();
-        loadStats();
-      })
-      .catch(function (err) {
-        elMsg.className = "msg err";
-        elMsg.textContent = err.message;
-      });
+    try {
+      var del = await supabase.from(currentTable).delete().eq("id", Number(id));
+      if (del.error) throw del.error;
+      closeEditor();
+      await loadList();
+      await loadStats();
+    } catch (err) {
+      elMsg.className = "msg err";
+      elMsg.textContent = err.message || String(err);
+    }
   });
 
-  function debounce(fn, ms) {
-    var t;
-    return function () {
-      clearTimeout(t);
-      t = setTimeout(fn, ms);
-    };
+  async function boot() {
+    try {
+      supabase = initClient();
+      setTable("products");
+    } catch (e) {
+      setStatsText("Lỗi: " + (e.message || String(e)));
+      setEmptyMessage("Không kết nối được Supabase: " + (e.message || String(e)), true);
+    }
   }
 
-  setTable("products");
+  boot();
 })();

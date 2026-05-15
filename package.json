@@ -5,12 +5,5 @@
   "description": "Landing Thuận Thiên + chat OpenRouter trên Vercel",
   "engines": {
     "node": ">=18"
-  },
-  "scripts": {
-    "sync-brain": "python ../my-brain/sync_data_to_brain.py",
-    "dev": "vercel dev"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.49.8"
   }
 }

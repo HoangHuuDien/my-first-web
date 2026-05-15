@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admin — Brain DB | Thuận Thiên</title>
+  <title>Admin — Thuận Thiên</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
   <header class="top">
     <div>
       <h1>Brain Admin</h1>
-      <p class="sub">Quản lý <strong>products</strong> · <strong>customers</strong> · <strong>orders</strong> trên <strong>Supabase</strong></p>
+      <p class="sub">Quản lý <strong>products</strong> · <strong>customers</strong> · <strong>orders</strong> trên Supabase</p>
     </div>
     <div class="stats" id="stats" aria-live="polite">Đang tải thống kê…</div>
   </header>
@@ -29,7 +29,6 @@
       <input type="search" id="search" placeholder="Tiêu đề, slug, đường dẫn…">
       <button type="button" class="btn secondary" id="btn-refresh">Làm mới danh sách</button>
       <button type="button" class="btn primary" id="btn-new">+ Thêm bản ghi</button>
-      <p class="hint">Nguồn: Supabase (đã migrate từ <code>brain.db</code>).<br>Đồng bộ lại file: <code>python my-brain/sync_data_to_brain.py</code> rồi <code>python my-brain/migrate_brain_to_supabase.py</code></p>
     </aside>
 
     <section class="panel">
@@ -38,7 +37,7 @@
           <thead id="list-head"></thead>
           <tbody id="list-body"></tbody>
         </table>
-        <p id="list-empty" class="empty hidden">Chưa có bản ghi.</p>
+        <p id="list-empty" class="empty hidden">Không có dữ liệu</p>
       </div>
 
       <article class="editor hidden" id="editor">
@@ -66,6 +65,13 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    window.__ADMIN_SUPABASE__ = {
+      url: "https://wbpzrebgdirdmtfiqrls.supabase.co",
+      anonKey: "sb_publishable_FnplzjXonbDizjgOewGAGw_TKvPcZg9"
+    };
+  </script>
   <script src="admin.js"></script>
 </body>
 </html>
