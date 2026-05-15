@@ -325,6 +325,62 @@ body[data-view="knowledge"] .field-customers {
   color: #1a5c34;
 }
 
+.status-badge.cancelled {
+  background: #f8d7da;
+  color: #842029;
+}
+
+.td-actions {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-order-action {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.2;
+}
+
+.btn-order-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-order-action.btn-confirm {
+  background: #28a745;
+  color: #fff;
+}
+
+.btn-order-action.btn-confirm:hover:not(:disabled) {
+  background: #218838;
+}
+
+.btn-order-action.btn-cancel-order {
+  background: #dc3545;
+  color: #fff;
+}
+
+.btn-order-action.btn-cancel-order:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.actions-muted {
+  color: #9a948a;
+  font-size: 0.85rem;
+}
+
 .order-meta {
   font-size: 0.85rem;
   color: #6b655c;

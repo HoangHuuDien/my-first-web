@@ -225,8 +225,76 @@
 
   function renderStatusBadge(status) {
     var s = String(status || "pending").toLowerCase();
-    var cls = s === "success" ? "status-badge success" : "status-badge pending";
+    var cls = "status-badge pending";
+    if (s === "success") cls = "status-badge success";
+    else if (s === "cancelled") cls = "status-badge cancelled";
     return '<span class="' + cls + '">' + escapeHtml(s) + "</span>";
+  }
+
+  function renderOrderActions(row) {
+    var status = String(row.status || "pending").toLowerCase();
+    if (status !== "pending") {
+      return '<span class="actions-muted">—</span>';
+    }
+    return (
+      '<div class="order-actions">' +
+      '<button type="button" class="btn-order-action btn-confirm" data-order-action="confirm" data-id="' +
+      row.id +
+      '">Xác nhận Thành công</button>' +
+      '<button type="button" class="btn-order-action btn-cancel-order" data-order-action="cancel" data-id="' +
+      row.id +
+      '">Hủy đơn</button>' +
+      "</div>"
+    );
+  }
+
+  function patchOrderStatus(orderId, newStatus) {
+    return fetchJson(apiUrl(RECORDS_URL), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        view: "orders",
+        id: orderId,
+        payload: {
+          status: newStatus,
+          updated_at: new Date().toISOString(),
+        },
+      }),
+    }).then(function () {
+      return fetchList().then(fetchStats);
+    });
+  }
+
+  function handleOrderActionClick(btn) {
+    var action = btn.getAttribute("data-order-action");
+    var orderId = Number(btn.getAttribute("data-id"));
+    if (!orderId) return;
+
+    var msg =
+      action === "confirm"
+        ? "Xác nhận đơn #" + orderId + " đã thanh toán thành công?"
+        : "Hủy đơn #" + orderId + "?";
+    if (!confirm(msg)) return;
+
+    btn.disabled = true;
+    var siblings = btn.parentElement
+      ? btn.parentElement.querySelectorAll("button")
+      : [];
+    siblings.forEach(function (b) {
+      b.disabled = true;
+    });
+
+    var nextStatus = action === "confirm" ? "success" : "cancelled";
+    patchOrderStatus(orderId, nextStatus)
+      .then(function () {
+        showBanner("", false);
+      })
+      .catch(function (err) {
+        siblings.forEach(function (b) {
+          b.disabled = false;
+        });
+        showBanner("Cập nhật đơn: " + formatError(err), true);
+      });
   }
 
   function cellValue(row, col) {
@@ -251,6 +319,7 @@
     var view = cfg();
     if (!elHead || !elBody) return;
 
+    var isSales = view.kind === "sales";
     elHead.innerHTML =
       "<tr>" +
       view.listColumns
@@ -258,30 +327,42 @@
           return "<th>" + escapeHtml(c.label) + "</th>";
         })
         .join("") +
+      (isSales ? "<th>Hành động</th>" : "") +
       "</tr>";
 
     elBody.innerHTML = state.rows
       .map(function (row) {
-        return (
-          "<tr data-id=\"" +
-          row.id +
-          "\">" +
-          view.listColumns
-            .map(function (col) {
-              return "<td>" + cellValue(row, col) + "</td>";
-            })
-            .join("") +
-          "</tr>"
-        );
+        var cells = view.listColumns
+          .map(function (col) {
+            return "<td>" + cellValue(row, col) + "</td>";
+          })
+          .join("");
+        if (isSales) {
+          cells +=
+            '<td class="td-actions">' + renderOrderActions(row) + "</td>";
+        }
+        return "<tr data-id=\"" + row.id + "\">" + cells + "</tr>";
       })
       .join("");
 
     setEmptyMessage("Không có dữ liệu", state.rows.length === 0, false);
+  }
 
-    elBody.querySelectorAll("tr").forEach(function (tr) {
-      tr.addEventListener("click", function () {
+  function bindListRowEvents() {
+    if (!elBody || elBody._listEventsBound) return;
+    elBody._listEventsBound = true;
+    elBody.addEventListener("click", function (e) {
+      var actionBtn = e.target.closest("[data-order-action]");
+      if (actionBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleOrderActionClick(actionBtn);
+        return;
+      }
+      var tr = e.target.closest("tr[data-id]");
+      if (tr) {
         openRow(Number(tr.getAttribute("data-id")));
-      });
+      }
     });
   }
 
@@ -372,8 +453,9 @@
           document.getElementById("o-phone").value = row.customer_phone || "";
           document.getElementById("o-email").value = row.customer_email || "";
           document.getElementById("o-amount").value = row.amount || 0;
-          document.getElementById("o-status").value =
-            row.status === "success" ? "success" : "pending";
+        var st = String(row.status || "pending").toLowerCase();
+        document.getElementById("o-status").value =
+          st === "success" || st === "cancelled" ? st : "pending";
           document.getElementById("o-note").value = row.product_note || "";
           document.getElementById("o-transfer").value =
             row.transfer_content || "";
@@ -612,6 +694,7 @@
     }
 
     console.log("[Admin] Khởi động — API:", apiUrl(STATS_URL));
+    bindListRowEvents();
     bindEvents();
     setView("products");
   }
