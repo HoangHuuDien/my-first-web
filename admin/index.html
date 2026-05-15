@@ -13,7 +13,7 @@
   <header class="top">
     <div>
       <h1>Brain Admin</h1>
-      <p class="sub">Quản lý <strong>products</strong> · <strong>customers</strong> · <strong>orders</strong> từ <code>brain.db</code></p>
+      <p class="sub">Quản lý <strong>products</strong> · <strong>customers</strong> · <strong>orders</strong> trên <strong>Supabase</strong></p>
     </div>
     <div class="stats" id="stats" aria-live="polite">Đang tải thống kê…</div>
   </header>
@@ -29,7 +29,7 @@
       <input type="search" id="search" placeholder="Tiêu đề, slug, đường dẫn…">
       <button type="button" class="btn secondary" id="btn-refresh">Làm mới danh sách</button>
       <button type="button" class="btn primary" id="btn-new">+ Thêm bản ghi</button>
-      <p class="hint">Đồng bộ từ <code>/data</code>:<br><code>python my-brain/sync_data_to_brain.py</code></p>
+      <p class="hint">Nguồn: Supabase (đã migrate từ <code>brain.db</code>).<br>Đồng bộ lại file: <code>python my-brain/sync_data_to_brain.py</code> rồi <code>python my-brain/migrate_brain_to_supabase.py</code></p>
     </aside>
 
     <section class="panel">

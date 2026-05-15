@@ -11,6 +11,6 @@
     "dev": "vercel dev"
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0"
+    "@supabase/supabase-js": "^2.49.8"
   }
 }

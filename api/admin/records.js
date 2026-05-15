@@ -1,64 +1,19 @@
 /**
- * CRUD brain.db — products | customers | orders
- * DB: brain.db ở thư mục gốc my-first-web (sau khi chạy sync)
+ * CRUD products | customers | orders — Supabase (service role, server-only)
  */
-const fs = require("fs");
-const path = require("path");
+const { getSupabaseAdmin } = require("./_supabase");
 
 const TABLES = {
-  products: ["id", "source_path", "slug", "title", "content", "price_hint", "updated_at"],
-  customers: ["id", "source_path", "slug", "title", "content", "tags", "updated_at"],
-  orders: [
-    "id",
-    "source_path",
-    "slug",
-    "title",
-    "content",
-    "category",
-    "related_product_slug",
-    "updated_at",
-  ],
+  products: true,
+  customers: true,
+  orders: true,
 };
 
-let Database;
-try {
-  Database = require("better-sqlite3");
-} catch (e) {
-  Database = null;
-}
-
-function getDbPath() {
-  var env = process.env.BRAIN_DB_PATH;
-  if (env && fs.existsSync(env)) return env;
-  var candidates = [
-    path.join(process.cwd(), "brain.db"),
-    path.join(__dirname, "..", "..", "brain.db"),
-    path.join(process.cwd(), "data", "brain.db"),
-    path.join(__dirname, "..", "..", "data", "brain.db"),
-    path.join(__dirname, "..", "..", "..", "my-brain", "brain.db"),
-  ];
-  for (var i = 0; i < candidates.length; i++) {
-    if (fs.existsSync(candidates[i])) return candidates[i];
-  }
-  return candidates[0];
-}
-
-function openDb() {
-  if (!Database) {
-    var err = new Error("better-sqlite3 chưa cài. Chạy: npm install");
-    err.code = "NO_SQLITE";
-    throw err;
-  }
-  var dbPath = getDbPath();
-  if (!fs.existsSync(dbPath)) {
-    var missing = new Error(
-      "Chưa có brain.db. Chạy: python my-brain/sync_data_to_brain.py"
-    );
-    missing.code = "NO_DB";
-    throw missing;
-  }
-  return new Database(dbPath, { readonly: false });
-}
+const LIST_COLS = {
+  products: "id, source_path, slug, title, price_hint, updated_at",
+  customers: "id, source_path, slug, title, tags, updated_at",
+  orders: "id, source_path, slug, title, category, updated_at",
+};
 
 function checkAuth(req) {
   var token = process.env.ADMIN_TOKEN;
@@ -101,136 +56,88 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { error: "table phải là products | customers | orders" });
   }
 
-  var cols = TABLES[table];
-
+  var supabase;
   try {
-    var db = openDb();
+    supabase = getSupabaseAdmin();
   } catch (e) {
-    return json(res, 503, {
-      error: e.message,
-      code: e.code || "DB_ERROR",
-    });
+    return json(res, 503, { error: e.message, code: e.code || "NO_SUPABASE" });
   }
 
   try {
     if (req.method === "GET") {
       var id = req.query.id;
       if (id) {
-        var row = db.prepare("SELECT * FROM " + table + " WHERE id = ?").get(Number(id));
-        db.close();
+        var { data: row, error: errOne } = await supabase
+          .from(table)
+          .select("*")
+          .eq("id", Number(id))
+          .maybeSingle();
+        if (errOne) throw errOne;
         if (!row) return json(res, 404, { error: "Not found" });
         return json(res, 200, { row: row });
       }
       var q = (req.query.q || "").trim();
       var limit = Math.min(Number(req.query.limit) || 200, 500);
-      var sql =
-        "SELECT id, source_path, slug, title, " +
-        (table === "products"
-          ? "price_hint"
-          : table === "customers"
-            ? "tags"
-            : "category") +
-        ", updated_at FROM " +
-        table;
-      var params = [];
+      var query = supabase.from(table).select(LIST_COLS[table]).order("id", { ascending: true }).limit(limit);
       if (q) {
-        sql +=
-          " WHERE title LIKE ? OR slug LIKE ? OR source_path LIKE ?";
-        var like = "%" + q + "%";
-        params = [like, like, like];
+        var pattern = "%" + q + "%";
+        query = query.or(
+          "title.ilike." + pattern + ",slug.ilike." + pattern + ",source_path.ilike." + pattern
+        );
       }
-      sql += " ORDER BY id ASC LIMIT ?";
-      params.push(limit);
-      var rows = db.prepare(sql).all.apply(db.prepare(sql), params);
-      db.close();
-      return json(res, 200, { rows: rows, table: table });
+      var { data: rows, error: errList } = await query;
+      if (errList) throw errList;
+      return json(res, 200, { rows: rows || [], table: table, source: "supabase" });
     }
 
     if (req.method === "POST" || req.method === "PUT") {
       var body = await parseBody(req);
       var ts = new Date().toISOString();
+      body.updated_at = ts;
+
       if (req.method === "POST") {
-        if (table === "products") {
-          db.prepare(
-            "INSERT INTO products (source_path, slug, title, content, price_hint, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-          ).run(
-            body.source_path || "manual/" + (body.slug || "new"),
-            body.slug || "new",
-            body.title || "",
-            body.content || "",
-            body.price_hint || null,
-            ts
-          );
-        } else if (table === "customers") {
-          db.prepare(
-            "INSERT INTO customers (source_path, slug, title, content, tags, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-          ).run(
-            body.source_path || "manual/" + (body.slug || "new"),
-            body.slug || "new",
-            body.title || "",
-            body.content || "",
-            body.tags || null,
-            ts
-          );
-        } else {
-          db.prepare(
-            "INSERT INTO orders (source_path, slug, title, content, category, related_product_slug, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-          ).run(
-            body.source_path || "manual/" + (body.slug || "new"),
-            body.slug || "new",
-            body.title || "",
-            body.content || "",
-            body.category || null,
-            body.related_product_slug || null,
-            ts
-          );
+        delete body.id;
+        var row = {
+          source_path: body.source_path || "manual/" + (body.slug || "new"),
+          slug: body.slug || "new",
+          title: body.title || "",
+          content: body.content || "",
+          updated_at: ts,
+        };
+        if (table === "products") row.price_hint = body.price_hint || null;
+        if (table === "customers") row.tags = body.tags || null;
+        if (table === "orders") {
+          row.category = body.category || null;
+          row.related_product_slug = body.related_product_slug || null;
         }
-        var lastId = db.prepare("SELECT last_insert_rowid() AS id").get().id;
-        db.close();
-        return json(res, 201, { id: lastId });
+        var { data: inserted, error: errIns } = await supabase
+          .from(table)
+          .insert([row])
+          .select("id")
+          .single();
+        if (errIns) throw errIns;
+        return json(res, 201, { id: inserted.id });
       }
 
       var idPut = Number(body.id);
-      if (!idPut) {
-        db.close();
-        return json(res, 400, { error: "Thiếu id" });
-      }
-      var sets = [];
-      var vals = [];
-      cols.forEach(function (c) {
-        if (c === "id" || c === "source_path") return;
-        if (body[c] !== undefined) {
-          sets.push(c + " = ?");
-          vals.push(body[c]);
-        }
-      });
-      sets.push("updated_at = ?");
-      vals.push(ts);
-      vals.push(idPut);
-      db.prepare(
-        "UPDATE " + table + " SET " + sets.join(", ") + " WHERE id = ?"
-      ).run(...vals);
-      db.close();
+      if (!idPut) return json(res, 400, { error: "Thiếu id" });
+      delete body.id;
+      delete body.source_path;
+      var { error: errUp } = await supabase.from(table).update(body).eq("id", idPut);
+      if (errUp) throw errUp;
       return json(res, 200, { ok: true });
     }
 
     if (req.method === "DELETE") {
       var delId = Number(req.query.id);
-      if (!delId) {
-        db.close();
-        return json(res, 400, { error: "Thiếu id" });
-      }
-      db.prepare("DELETE FROM " + table + " WHERE id = ?").run(delId);
-      db.close();
+      if (!delId) return json(res, 400, { error: "Thiếu id" });
+      var { error: errDel } = await supabase.from(table).delete().eq("id", delId);
+      if (errDel) throw errDel;
       return json(res, 200, { ok: true });
     }
 
-    db.close();
     return json(res, 405, { error: "Method not allowed" });
   } catch (err) {
-    try {
-      db.close();
-    } catch (e2) {}
-    return json(res, 500, { error: err.message });
+    return json(res, 500, { error: err.message || String(err) });
   }
 };
