@@ -5,7 +5,7 @@ window.TT_PAYMENT_CONFIG = {
   amount: 500000,
   transferDesc: "TVBT500",
   giftDownloadUrl:
-    "https://drive.google.com/drive/folders/1placeholder-thay-link-cua-ban",
+    "https://drive.google.com/file/d/1UUvksD7X6jgt14Y1VXBgui2ebg4jBfuB/view?usp=sharing",
 };
 
 window.TT_buildSepayQrUrl = function (cfg) {
