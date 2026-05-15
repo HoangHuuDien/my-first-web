@@ -1,6 +1,6 @@
 /**
  * CRUD brain.db — products | customers | orders
- * DB: data/brain.db (sau khi chạy my-brain/sync_data_to_brain.py)
+ * DB: brain.db ở thư mục gốc my-first-web (sau khi chạy sync)
  */
 const fs = require("fs");
 const path = require("path");
@@ -31,6 +31,8 @@ function getDbPath() {
   var env = process.env.BRAIN_DB_PATH;
   if (env && fs.existsSync(env)) return env;
   var candidates = [
+    path.join(process.cwd(), "brain.db"),
+    path.join(__dirname, "..", "..", "brain.db"),
     path.join(process.cwd(), "data", "brain.db"),
     path.join(__dirname, "..", "..", "data", "brain.db"),
     path.join(__dirname, "..", "..", "..", "my-brain", "brain.db"),
