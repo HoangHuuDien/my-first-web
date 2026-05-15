@@ -7,6 +7,10 @@
   },
   "rewrites": [
     { "source": "/admin", "destination": "/admin/index.html" },
-    { "source": "/admin/", "destination": "/admin/index.html" }
+    { "source": "/admin/", "destination": "/admin/index.html" },
+    { "source": "/payment", "destination": "/payment/index.html" },
+    { "source": "/payment/", "destination": "/payment/index.html" },
+    { "source": "/thank-you", "destination": "/thank-you/index.html" },
+    { "source": "/thank-you/", "destination": "/thank-you/index.html" }
   ]
 }

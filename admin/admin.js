@@ -1,57 +1,46 @@
 (function () {
-  /**
-   * Routing ro rang: moi tab -> 1 view -> 1 bang Supabase.
-   * - products, customers, knowledge: noi dung markdown (/data)
-   * - orders: DON HANG ban hang (SePay), KHONG phai FAQ
-   */
+  var LOADING_MS = 5000;
+  var TIMEOUT_MSG =
+    "Không thể kết nối dữ liệu, vui lòng kiểm tra lại API Key";
+
   var VIEWS = {
     products: {
       kind: "content",
       table: "products",
       label: "Sản phẩm",
-      listSelect:
-        "id, source_path, slug, title, price_hint, updated_at",
       listColumns: [
         { key: "id", label: "ID" },
         { key: "title", label: "Tiêu đề" },
         { key: "slug", label: "Slug" },
         { key: "price_hint", label: "Giá gợi ý" },
       ],
-      searchFields: ["title", "slug", "source_path"],
     },
     customers: {
       kind: "content",
       table: "customers",
       label: "Khách hàng",
-      listSelect: "id, source_path, slug, title, tags, updated_at",
       listColumns: [
         { key: "id", label: "ID" },
         { key: "title", label: "Tiêu đề" },
         { key: "slug", label: "Slug" },
         { key: "tags", label: "Tags" },
       ],
-      searchFields: ["title", "slug", "source_path"],
     },
     knowledge: {
       kind: "content",
       table: "knowledge",
       label: "Kiến thức / FAQ",
-      listSelect:
-        "id, source_path, slug, title, category, updated_at",
       listColumns: [
         { key: "id", label: "ID" },
         { key: "title", label: "Tiêu đề" },
         { key: "category", label: "Loại" },
         { key: "slug", label: "Slug" },
       ],
-      searchFields: ["title", "slug", "source_path", "category"],
     },
     orders: {
       kind: "sales",
       table: "orders",
       label: "Đơn hàng",
-      listSelect:
-        "id, customer_name, customer_phone, amount, status, created_at",
       listColumns: [
         { key: "id", label: "ID" },
         { key: "customer_name", label: "Khách hàng" },
@@ -59,21 +48,16 @@
         { key: "status", label: "Trạng thái" },
         { key: "created_at", label: "Ngày mua" },
       ],
-      searchFields: [
-        "customer_name",
-        "customer_phone",
-        "customer_email",
-        "status",
-        "transfer_content",
-      ],
     },
   };
 
   var currentView = "products";
   var rows = [];
-  var supabase = null;
+  var statsToken = 0;
+  var listToken = 0;
 
   var elStats = document.getElementById("stats");
+  var elBanner = document.getElementById("admin-banner");
   var elHead = document.getElementById("list-head");
   var elBody = document.getElementById("list-body");
   var elEmpty = document.getElementById("list-empty");
@@ -85,19 +69,6 @@
 
   function cfg() {
     return VIEWS[currentView];
-  }
-
-  function initClient() {
-    var c = window.__ADMIN_SUPABASE__ || {};
-    var url = (c.url || "").trim();
-    var key = (c.anonKey || "").trim();
-    if (!window.supabase || !window.supabase.createClient) {
-      throw new Error("Không tải được Supabase SDK.");
-    }
-    if (!url || !key) {
-      throw new Error("Thiếu cấu hình Supabase.");
-    }
-    return window.supabase.createClient(url, key);
   }
 
   function escapeHtml(s) {
@@ -130,50 +101,93 @@
     }
   }
 
+  function formatError(err) {
+    if (!err) return TIMEOUT_MSG;
+    if (err.name === "AbortError") return TIMEOUT_MSG;
+    if (typeof err === "string") return err;
+    return err.message || String(err);
+  }
+
+  function showBanner(text, isError) {
+    if (!elBanner) return;
+    if (!text) {
+      elBanner.classList.add("hidden");
+      elBanner.textContent = "";
+      return;
+    }
+    elBanner.textContent = text;
+    elBanner.classList.remove("hidden");
+    elBanner.classList.toggle("err", !!isError);
+  }
+
+  function setStatsText(text, state) {
+    elStats.textContent = text;
+    elStats.classList.remove("loading", "err", "ok");
+    if (state) elStats.classList.add(state);
+  }
+
+  function setEmptyMessage(text, show, isError) {
+    elEmpty.textContent = text || "Không có dữ liệu";
+    elEmpty.classList.toggle("hidden", !show);
+    elEmpty.classList.toggle("err", !!isError);
+  }
+
+  function withLoadingTimeout(tokenRef, onTimeout) {
+    return setTimeout(function () {
+      if (tokenRef.current) onTimeout();
+    }, LOADING_MS);
+  }
+
+  async function apiJson(path, options) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () {
+      ctrl.abort();
+    }, LOADING_MS);
+
+    try {
+      var res = await fetch(path, {
+        method: (options && options.method) || "GET",
+        headers: Object.assign(
+          { Accept: "application/json" },
+          (options && options.headers) || {}
+        ),
+        body: options && options.body,
+        signal: ctrl.signal,
+      });
+      clearTimeout(timer);
+
+      var json = null;
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status + " — phản hồi không hợp lệ");
+        }
+        throw parseErr;
+      }
+
+      if (!res.ok) {
+        var msg =
+          (json && json.error) ||
+          "HTTP " + res.status + (json && json.code ? " (" + json.code + ")" : "");
+        if (res.status === 503) {
+          msg =
+            (json && json.error) ||
+            "Thiếu SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY trên Vercel.";
+        }
+        throw new Error(msg);
+      }
+      return json;
+    } catch (e) {
+      clearTimeout(timer);
+      throw e;
+    }
+  }
+
   function renderStatusBadge(status) {
     var s = String(status || "pending").toLowerCase();
     var cls = s === "success" ? "status-badge success" : "status-badge pending";
     return '<span class="' + cls + '">' + escapeHtml(s) + "</span>";
-  }
-
-  function setEmptyMessage(text, show) {
-    elEmpty.textContent = text || "Không có dữ liệu";
-    elEmpty.classList.toggle("hidden", !show);
-  }
-
-  function setStatsText(text) {
-    elStats.textContent = text;
-  }
-
-  async function countTable(table) {
-    var res = await supabase
-      .from(table)
-      .select("id", { count: "exact", head: true });
-    if (res.error) throw res.error;
-    return res.count || 0;
-  }
-
-  async function loadStats() {
-    try {
-      var keys = ["products", "customers", "knowledge", "orders"];
-      var counts = await Promise.all(
-        keys.map(function (k) {
-          return countTable(VIEWS[k].table);
-        })
-      );
-      setStatsText(
-        "SP: " +
-          counts[0] +
-          " · KH: " +
-          counts[1] +
-          " · FAQ: " +
-          counts[2] +
-          " · Đơn: " +
-          counts[3]
-      );
-    } catch (e) {
-      setStatsText("Lỗi thống kê: " + (e.message || String(e)));
-    }
   }
 
   function cellValue(row, col) {
@@ -187,37 +201,81 @@
     return escapeHtml(s);
   }
 
-  async function loadList() {
-    var view = cfg();
-    elBody.innerHTML = "";
-    setEmptyMessage("Đang tải…", true);
+  async function loadStats() {
+    var token = ++statsToken;
+    var tokenRef = { current: true };
+    setStatsText("Đang tải thống kê…", "loading");
 
-    var q = document.getElementById("search").value.trim();
-    var query = supabase
-      .from(view.table)
-      .select(view.listSelect)
-      .order(view.kind === "sales" ? "created_at" : "id", {
-        ascending: false,
-      })
-      .limit(200);
-
-    if (q && view.searchFields.length) {
-      var pattern = "%" + q + "%";
-      var parts = view.searchFields.map(function (f) {
-        return f + ".ilike." + pattern;
-      });
-      query = query.or(parts.join(","));
-    }
+    var timeoutId = withLoadingTimeout(tokenRef, function () {
+      if (token !== statsToken) return;
+      setStatsText(TIMEOUT_MSG, "err");
+      showBanner(TIMEOUT_MSG, true);
+    });
 
     try {
-      var res = await query;
-      if (res.error) throw res.error;
+      var data = await apiJson("/api/admin/stats");
+      if (token !== statsToken) return;
+      tokenRef.current = false;
+      clearTimeout(timeoutId);
+
+      setStatsText(
+        "SP: " +
+          (data.products || 0) +
+          " · KH: " +
+          (data.customers || 0) +
+          " · FAQ: " +
+          (data.knowledge || 0) +
+          " · Đơn: " +
+          (data.orders || 0),
+        "ok"
+      );
+      showBanner("", false);
+    } catch (e) {
+      if (token !== statsToken) return;
+      tokenRef.current = false;
+      clearTimeout(timeoutId);
+      var msg = formatError(e);
+      setStatsText("Lỗi thống kê: " + msg, "err");
+      showBanner("Thống kê: " + msg, true);
+    }
+  }
+
+  async function loadList() {
+    var token = ++listToken;
+    var tokenRef = { current: true };
+    var view = cfg();
+    elBody.innerHTML = "";
+    setEmptyMessage("Đang tải…", true, false);
+
+    var timeoutId = withLoadingTimeout(tokenRef, function () {
+      if (token !== listToken) return;
+      rows = [];
+      renderList();
+      setEmptyMessage(TIMEOUT_MSG, true, true);
+    });
+
+    var q = document.getElementById("search").value.trim();
+    var url =
+      "/api/admin/records?view=" +
+      encodeURIComponent(currentView) +
+      (q ? "&q=" + encodeURIComponent(q) : "");
+
+    try {
+      var res = await apiJson(url);
+      if (token !== listToken) return;
+      tokenRef.current = false;
+      clearTimeout(timeoutId);
       rows = res.data || [];
       renderList();
     } catch (e) {
+      if (token !== listToken) return;
+      tokenRef.current = false;
+      clearTimeout(timeoutId);
       rows = [];
       renderList();
-      setEmptyMessage("Lỗi: " + (e.message || String(e)), true);
+      var msg = formatError(e);
+      setEmptyMessage("Lỗi: " + msg, true, true);
+      showBanner("Danh sách (" + view.label + "): " + msg, true);
     }
   }
 
@@ -248,7 +306,7 @@
       })
       .join("");
 
-    setEmptyMessage("Không có dữ liệu", rows.length === 0);
+    setEmptyMessage("Không có dữ liệu", rows.length === 0, false);
 
     elBody.querySelectorAll("tr").forEach(function (tr) {
       tr.addEventListener("click", function () {
@@ -278,16 +336,18 @@
 
   async function openRow(id) {
     elMsg.textContent = "";
+    elMsg.className = "msg";
     var view = cfg();
+
     try {
-      var res = await supabase
-        .from(view.table)
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-      if (res.error) throw res.error;
-      if (!res.data) throw new Error("Không tìm thấy bản ghi.");
+      var res = await apiJson(
+        "/api/admin/records?view=" +
+          encodeURIComponent(currentView) +
+          "&id=" +
+          encodeURIComponent(String(id))
+      );
       var row = res.data;
+      if (!row) throw new Error("Không tìm thấy bản ghi.");
 
       if (view.kind === "sales") {
         showOrderForm();
@@ -323,11 +383,14 @@
 
       elEditor.classList.remove("hidden");
       elBody.querySelectorAll("tr").forEach(function (tr) {
-        tr.classList.toggle("selected", Number(tr.getAttribute("data-id")) === id);
+        tr.classList.toggle(
+          "selected",
+          Number(tr.getAttribute("data-id")) === id
+        );
       });
     } catch (e) {
       elMsg.className = "msg err";
-      elMsg.textContent = e.message || String(e);
+      elMsg.textContent = formatError(e);
     }
   }
 
@@ -357,7 +420,11 @@
   });
 
   document.getElementById("search").addEventListener("input", debounce(loadList, 300));
-  document.getElementById("btn-refresh").addEventListener("click", loadList);
+  document.getElementById("btn-refresh").addEventListener("click", function () {
+    showBanner("", false);
+    loadList();
+    loadStats();
+  });
   document.getElementById("btn-cancel").addEventListener("click", closeEditor);
   document.getElementById("btn-cancel-order").addEventListener("click", closeEditor);
 
@@ -399,14 +466,21 @@
 
     try {
       if (id) {
-        var up = await supabase
-          .from(view.table)
-          .update(payload)
-          .eq("id", Number(id));
-        if (up.error) throw up.error;
+        await apiJson("/api/admin/records", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            view: currentView,
+            id: Number(id),
+            payload: payload,
+          }),
+        });
       } else {
-        var ins = await supabase.from(view.table).insert([payload]);
-        if (ins.error) throw ins.error;
+        await apiJson("/api/admin/records", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ view: currentView, payload: payload }),
+        });
       }
       elMsg.className = "msg ok";
       elMsg.textContent = "Đã lưu.";
@@ -415,7 +489,7 @@
       if (!id) closeEditor();
     } catch (err) {
       elMsg.className = "msg err";
-      elMsg.textContent = err.message || String(err);
+      elMsg.textContent = formatError(err);
     }
   });
 
@@ -433,18 +507,22 @@
       updated_at: new Date().toISOString(),
     };
     try {
-      var up = await supabase
-        .from("orders")
-        .update(payload)
-        .eq("id", Number(id));
-      if (up.error) throw up.error;
+      await apiJson("/api/admin/records", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          view: "orders",
+          id: Number(id),
+          payload: payload,
+        }),
+      });
       elMsg.className = "msg ok";
       elMsg.textContent = "Đã cập nhật đơn.";
       await loadList();
       await loadStats();
     } catch (err) {
       elMsg.className = "msg err";
-      elMsg.textContent = err.message || String(err);
+      elMsg.textContent = formatError(err);
     }
   });
 
@@ -454,14 +532,19 @@
     var id = document.getElementById("f-id").value;
     if (!id || !confirm("Xóa bản ghi này?")) return;
     try {
-      var del = await supabase.from(view.table).delete().eq("id", Number(id));
-      if (del.error) throw del.error;
+      await apiJson(
+        "/api/admin/records?view=" +
+          encodeURIComponent(currentView) +
+          "&id=" +
+          encodeURIComponent(id),
+        { method: "DELETE" }
+      );
       closeEditor();
       await loadList();
       await loadStats();
     } catch (err) {
       elMsg.className = "msg err";
-      elMsg.textContent = err.message || String(err);
+      elMsg.textContent = formatError(err);
     }
   });
 
@@ -469,25 +552,21 @@
     var id = document.getElementById("o-id").value;
     if (!id || !confirm("Xóa đơn hàng này?")) return;
     try {
-      var del = await supabase.from("orders").delete().eq("id", Number(id));
-      if (del.error) throw del.error;
+      await apiJson(
+        "/api/admin/records?view=orders&id=" + encodeURIComponent(id),
+        { method: "DELETE" }
+      );
       closeEditor();
       await loadList();
       await loadStats();
     } catch (err) {
       elMsg.className = "msg err";
-      elMsg.textContent = err.message || String(err);
+      elMsg.textContent = formatError(err);
     }
   });
 
-  async function boot() {
-    try {
-      supabase = initClient();
-      setView("products");
-    } catch (e) {
-      setStatsText("Lỗi: " + (e.message || String(e)));
-      setEmptyMessage("Không kết nối Supabase: " + (e.message || String(e)), true);
-    }
+  function boot() {
+    setView("products");
   }
 
   boot();

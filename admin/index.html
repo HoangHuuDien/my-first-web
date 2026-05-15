@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/admin/admin.css?v=16">
+  <link rel="stylesheet" href="/admin/admin.css?v=17">
 </head>
 <body>
   <header class="top">
@@ -15,8 +15,10 @@
       <h1>Brain Admin</h1>
       <p class="sub">Sản phẩm · Khách hàng · <strong>Kiến thức/FAQ</strong> · <strong>Đơn hàng</strong></p>
     </div>
-    <div class="stats" id="stats" aria-live="polite">Đang tải thống kê…</div>
+    <div class="stats loading" id="stats" aria-live="polite">Đang tải thống kê…</div>
   </header>
+
+  <p id="admin-banner" class="admin-banner hidden" role="alert" aria-live="assertive"></p>
 
   <main class="layout">
     <aside class="sidebar">
@@ -90,13 +92,6 @@
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    window.__ADMIN_SUPABASE__ = {
-      url: "https://wbpzrebgdirdmtfiqrls.supabase.co",
-      anonKey: "sb_publishable_FnplzjXonbDizjgOewGAGw_TKvPcZg9"
-    };
-  </script>
-  <script src="/admin/admin.js?v=16" defer></script>
+  <script src="/admin/admin.js?v=17" defer></script>
 </body>
 </html>

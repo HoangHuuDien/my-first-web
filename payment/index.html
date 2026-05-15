@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thanh toán — Thuận Thiên</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Be Vietnam Pro"', "system-ui", "sans-serif"] },
+          colors: { brand: { dark: "#2a2520", gold: "#b59a66", red: "#dd252f" } },
+        },
+      },
+    };
+  </script>
+</head>
+<body class="min-h-screen bg-stone-100 font-sans text-stone-900 antialiased">
+  <header class="border-b border-stone-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+      <a href="/" class="text-sm font-semibold text-stone-600 hover:text-stone-900">← Về trang chủ</a>
+      <span class="text-sm font-medium text-brand-gold">Thuận Thiên</span>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-lg px-4 py-10">
+    <div id="gate-denied" class="hidden rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+      <p class="text-lg font-semibold text-amber-900">Bạn cần đăng ký trước</p>
+      <p class="mt-2 text-stone-600">Vui lòng điền form trên trang chủ để nhận mã thanh toán.</p>
+      <a href="/#contact-form" class="mt-5 inline-block rounded-full bg-brand-red px-6 py-3 font-bold text-white">Điền form đăng ký</a>
+    </div>
+
+    <div id="payment-panel" class="hidden space-y-6">
+      <div class="rounded-2xl bg-white p-6 shadow-lg shadow-stone-200/60">
+        <p class="text-sm font-medium uppercase tracking-wide text-brand-gold">Bước 2 / 3</p>
+        <h1 class="mt-1 text-2xl font-bold text-stone-900">Thanh toán phí tư vấn</h1>
+        <p class="mt-2 text-stone-600">
+          Cảm ơn <strong id="lead-name" class="text-stone-900">bạn</strong> — thông tin đã được lưu. Quét mã QR bên dưới để hoàn tất.
+        </p>
+        <p id="lead-email" class="mt-1 text-sm text-stone-500"></p>
+      </div>
+
+      <div class="rounded-2xl border border-stone-200 bg-white p-6 text-center shadow-md">
+        <p class="text-lg font-semibold">Số tiền: <span id="amount-label" class="text-brand-red">500.000đ</span></p>
+        <p class="mt-1 text-sm text-stone-500">Chuyển khoản MB — nội dung: <strong id="des-label">TVBT500</strong></p>
+        <img id="payment-qr" class="mx-auto mt-5 rounded-xl border border-stone-100" width="280" height="280" alt="QR thanh toán">
+        <p class="mt-4 text-xs text-stone-500">Sau khi chuyển khoản, bấm nút xác nhận để nhận quà tặng.</p>
+      </div>
+
+      <button type="button" id="btn-paid" class="w-full rounded-full bg-gradient-to-b from-red-500 to-red-600 py-4 text-lg font-bold text-white shadow-lg shadow-red-500/30 transition hover:brightness-105">
+        Tôi đã chuyển khoản xong
+      </button>
+      <p class="text-center text-xs text-stone-400">Hệ thống sẽ xác nhận tự động khi nhận được tiền (SePay). Nút trên dùng khi bạn vừa chuyển xong.</p>
+    </div>
+  </main>
+
+  <script src="/js/payment-config.js"></script>
+  <script>
+    (function () {
+      var cfg = window.TT_PAYMENT_CONFIG;
+      var lead = window.TT_getLeadSession();
+      var denied = document.getElementById("gate-denied");
+      var panel = document.getElementById("payment-panel");
+
+      if (!lead || !lead.name) {
+        denied.classList.remove("hidden");
+        return;
+      }
+
+      panel.classList.remove("hidden");
+      document.getElementById("lead-name").textContent = lead.name;
+      document.getElementById("lead-email").textContent = lead.email
+        ? "Email: " + lead.email + (lead.zalo ? " · Zalo: " + lead.zalo : "")
+        : lead.zalo
+          ? "Zalo: " + lead.zalo
+          : "";
+      document.getElementById("amount-label").textContent = window.TT_formatVnd(cfg.amount);
+      document.getElementById("des-label").textContent = cfg.transferDesc;
+      document.getElementById("payment-qr").src = window.TT_buildSepayQrUrl(cfg);
+
+      document.getElementById("btn-paid").addEventListener("click", function () {
+        sessionStorage.setItem("tt_payment_confirmed", "1");
+        window.location.href = "/thank-you";
+      });
+    })();
+  </script>
+</body>
+</html>

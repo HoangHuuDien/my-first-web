@@ -146,44 +146,6 @@
     .contact-submit {
       width: 100%;
     }
-    .payment-box {
-      max-width: 620px;
-      margin: 28px auto 0;
-      text-align: center;
-      padding: 24px;
-      background: #f6f5f2;
-      border: 1px solid #d4d2cb;
-      border-radius: 20px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
-    }
-    .payment-box h3 {
-      margin: 0 0 8px;
-      font-size: 22px;
-      font-weight: 700;
-      color: #1f1d19;
-    }
-    .payment-box .payment-note {
-      margin: 0 0 16px;
-      color: #6f695f;
-      font-size: 17px;
-    }
-    .payment-qr-img {
-      display: block;
-      margin: 0 auto;
-      border-radius: 12px;
-      max-width: 100%;
-      height: auto;
-    }
-    .payment-box .payment-des {
-      margin: 14px 0 0;
-      font-size: 15px;
-      color: #2e2a25;
-    }
-    .payment-box .payment-warning {
-      margin: 10px 0 0;
-      font-size: 14px;
-      color: #8a4b4b;
-    }
     .cta-btn-red {
       display: inline-flex;
       align-items: center;
@@ -461,69 +423,13 @@
         <input class="contact-input" type="text" id="zalo" name="zalo" placeholder="Zalo liên hệ" required>
         <button class="cta-btn-red contact-submit" type="submit">Gửi thông tin</button>
       </form>
-      <div class="payment-box" id="payment-box">
-        <h3>Thanh toán phí tư vấn</h3>
-        <p class="payment-note">Số tiền: <strong>500.000đ</strong> — Quét mã bằng app ngân hàng (MB)</p>
-        <img
-          id="payment-qr"
-          class="payment-qr-img"
-          src=""
-          alt="QR chuyển khoản MB 500.000đ"
-          width="280"
-          height="280"
-        />
-        <p class="payment-des">Nội dung chuyển khoản: <strong id="payment-des-label">TVBT500</strong></p>
-        <p class="payment-warning" id="payment-config-hint" hidden>
-          Vui lòng cập nhật số tài khoản MB trong file index.html (biến SEPAY_ACCOUNT).
-        </p>
-      </div>
       <div class="quote">
         “Hiểu đúng lá số không phải để lo lắng về số phận, mà để chủ động chọn thời điểm và hướng đi phù hợp nhất cho cuộc đời mình.”
         <span class="quote-author">— Chuyên gia Bát Tự Hoàng Hữu Diễn</span>
       </div>
     </div>
   </section>
-  <script>
-    (function () {
-      var SEPAY_ACCOUNT = "0977611153";
-      var SEPAY_BANK = "MB";
-      var SEPAY_AMOUNT = 500000;
-      var SEPAY_TRANSFER_DESC = "TVBT500";
-
-      function buildSepayQrUrl(account, bank, amount, description) {
-        var params = new URLSearchParams({
-          acc: account,
-          bank: bank,
-          amount: String(amount),
-          des: description
-        });
-        return "https://qr.sepay.vn/img?" + params.toString();
-      }
-
-      function initSepayPaymentQr() {
-        var qrImg = document.getElementById("payment-qr");
-        var desLabel = document.getElementById("payment-des-label");
-        var configHint = document.getElementById("payment-config-hint");
-        if (!qrImg) return;
-
-        if (desLabel) {
-          desLabel.textContent = SEPAY_TRANSFER_DESC;
-        }
-
-        var account = (SEPAY_ACCOUNT || "").trim();
-        if (!account) {
-          if (configHint) configHint.hidden = false;
-          qrImg.removeAttribute("src");
-          return;
-        }
-
-        if (configHint) configHint.hidden = true;
-        qrImg.src = buildSepayQrUrl(account, SEPAY_BANK, SEPAY_AMOUNT, SEPAY_TRANSFER_DESC);
-      }
-
-      initSepayPaymentQr();
-    })();
-  </script>
+  <script src="/js/payment-config.js"></script>
   <script>
     (function () {
       var SUPABASE_URL = "https://wbpzrebgdirdmtfiqrls.supabase.co/";
@@ -712,8 +618,11 @@
           await insertLead(fullName, email, zalo);
           await notifyTelegramLead(fullName, email, zalo);
 
-          alert("Cảm ơn bạn đã liên hệ!");
-          contactForm.reset();
+          if (window.TT_setLeadSession) {
+            window.TT_setLeadSession({ name: fullName, email: email, zalo: zalo });
+          }
+          window.location.href = "/payment";
+          return;
         } catch (error) {
           if (isPermissionError(error)) {
             alert("Form đã kết nối Supabase nhưng bảng leads chưa cho phép ghi dữ liệu. Hãy bật policy INSERT cho role anon.");

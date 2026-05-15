@@ -46,6 +46,43 @@ body {
   border-radius: 8px;
 }
 
+.stats.loading {
+  opacity: 0.85;
+}
+
+.stats.err {
+  background: rgba(221, 37, 47, 0.35);
+  color: #ffe8e8;
+}
+
+.stats.ok {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.admin-banner {
+  margin: 0;
+  padding: 12px 24px;
+  font-size: 0.9rem;
+  background: #fff3cd;
+  color: #5c4a00;
+  border-bottom: 1px solid #e6d9a8;
+}
+
+.admin-banner.err {
+  background: #fde8e8;
+  color: #8b1a1a;
+  border-bottom-color: #f0b4b4;
+}
+
+.admin-banner.hidden {
+  display: none;
+}
+
+.empty.err {
+  color: #a32b2b;
+  font-weight: 500;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 260px 1fr;

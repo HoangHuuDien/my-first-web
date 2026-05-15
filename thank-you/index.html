@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cảm ơn bạn — Thuận Thiên</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Serif:wght@500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Be Vietnam Pro"', "system-ui", "sans-serif"],
+            serif: ['"Noto Serif"', "Georgia", "serif"],
+          },
+          colors: { brand: { dark: "#2a2520", gold: "#b59a66", red: "#dd252f" } },
+        },
+      },
+    };
+  </script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-stone-100 via-amber-50/40 to-stone-100 font-sans text-stone-900 antialiased">
+  <main class="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-4 py-12 text-center">
+    <div class="w-full rounded-3xl border border-stone-200/80 bg-white p-8 shadow-xl shadow-stone-300/30 md:p-12">
+      <div class="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl" aria-hidden="true">✓</div>
+      <h1 class="font-serif text-3xl font-semibold leading-tight text-stone-900 md:text-4xl">
+        Chúc mừng bạn đã đăng ký thành công!
+      </h1>
+      <p class="mx-auto mt-4 max-w-md text-lg leading-relaxed text-stone-600">
+        Cảm ơn bạn đã tin tưởng Thuận Thiên. Mình đã nhận thông tin của bạn — team sẽ liên hệ trong thời gian sớm nhất.
+        Phần quà số bên dưới dành cho bạn ngay bây giờ.
+      </p>
+      <a
+        id="gift-btn"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="mt-8 inline-flex w-full max-w-md items-center justify-center rounded-full bg-gradient-to-b from-red-500 to-red-600 px-8 py-4 text-lg font-bold tracking-wide text-white shadow-lg shadow-red-500/35 transition hover:scale-[1.02] hover:brightness-105 md:text-xl"
+      >
+        TẢI QUÀ NGAY BÂY GIỜ
+      </a>
+      <p class="mt-6 text-sm text-stone-500">
+        <a href="https://xembattu.vercel.app/" class="font-medium text-brand-gold underline-offset-2 hover:underline">Quay lại trang chủ</a>
+      </p>
+    </div>
+    <p id="gate-msg" class="mt-6 hidden text-sm text-amber-800"></p>
+  </main>
+
+  <script src="/js/payment-config.js"></script>
+  <script>
+    (function () {
+      var lead = window.TT_getLeadSession();
+      var confirmed = sessionStorage.getItem("tt_payment_confirmed") === "1";
+      var gate = document.getElementById("gate-msg");
+
+      if (!lead || !lead.name) {
+        gate.textContent = "Bạn chưa hoàn tất bước đăng ký. Hãy quay lại trang chủ điền form trước.";
+        gate.classList.remove("hidden");
+      } else if (!confirmed) {
+        gate.textContent =
+          "Nếu chưa thanh toán, bạn có thể quay lại trang thanh toán để quét QR.";
+        gate.classList.remove("hidden");
+        var link = document.createElement("a");
+        link.href = "/payment";
+        link.className = "ml-1 font-semibold underline";
+        link.textContent = "Đi tới thanh toán";
+        gate.appendChild(link);
+      }
+
+      document.getElementById("gift-btn").href =
+        window.TT_PAYMENT_CONFIG.giftDownloadUrl;
+
+      function fireConfetti() {
+        if (typeof confetti !== "function") return;
+        var duration = 2800;
+        var end = Date.now() + duration;
+        (function frame() {
+          confetti({
+            particleCount: 3,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 },
+            colors: ["#b59a66", "#dd252f", "#f5f0e8", "#2a2520"],
+          });
+          confetti({
+            particleCount: 3,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 },
+            colors: ["#b59a66", "#dd252f", "#f5f0e8", "#2a2520"],
+          });
+          if (Date.now() < end) requestAnimationFrame(frame);
+        })();
+        setTimeout(function () {
+          confetti({ particleCount: 120, spread: 90, origin: { y: 0.6 } });
+        }, 400);
+      }
+
+      window.addEventListener("load", fireConfetti);
+    })();
+  </script>
+</body>
+</html>
