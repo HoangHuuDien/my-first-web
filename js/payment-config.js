@@ -32,6 +32,12 @@ window.TT_getLeadSession = function () {
   }
 };
 
+/** Chỉ cho vào trang QR khi đã có đơn orders (pending) */
+window.TT_hasOrderForPayment = function () {
+  var s = window.TT_getLeadSession();
+  return !!(s && s.orderId);
+};
+
 window.TT_setLeadSession = function (lead) {
   sessionStorage.setItem("tt_lead", JSON.stringify(lead));
   sessionStorage.removeItem("tt_payment_confirmed");

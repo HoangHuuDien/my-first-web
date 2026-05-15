@@ -57,7 +57,7 @@
       var confirmed = sessionStorage.getItem("tt_payment_confirmed") === "1";
       var gate = document.getElementById("gate-msg");
 
-      if (!lead || !lead.name) {
+      if (!lead || !lead.name || !lead.orderId) {
         gate.textContent = "Bạn chưa hoàn tất bước đăng ký. Hãy quay lại trang chủ điền form trước.";
         gate.classList.remove("hidden");
       } else if (!confirmed) {

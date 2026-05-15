@@ -516,26 +516,44 @@
         );
       }
 
-      async function insertLead(fullName, email, zalo) {
-        var response = await supabaseClient.from("leads").insert([
-          {
-            name: fullName,
-            email: email,
-            zalo: zalo
-          }
-        ]);
+      async function createOrderFromForm(fullName, email, zalo) {
+        var payCfg = window.TT_PAYMENT_CONFIG || {};
+        var amount = Number(payCfg.amount) || 500000;
+        var transferContent = payCfg.transferDesc || "TVBT500";
+
+        var response = await supabaseClient
+          .from("orders")
+          .insert([
+            {
+              customer_name: fullName,
+              customer_phone: zalo,
+              customer_email: email,
+              amount: amount,
+              status: "pending",
+              transfer_content: transferContent,
+              product_note: "Đăng ký form trang chủ — chờ thanh toán",
+            },
+          ])
+          .select("id")
+          .single();
 
         if (response.error) {
           throw response.error;
         }
+        if (!response.data || !response.data.id) {
+          throw new Error("Không nhận được mã đơn hàng sau khi lưu.");
+        }
+        return response.data;
       }
 
-      function buildTelegramLeadText(fullName, email, zalo) {
+      function buildTelegramOrderText(orderId, fullName, email, zalo) {
         return (
-          "📩 Đăng ký mới từ form\n\n" +
+          "📩 Đơn mới từ form (chờ thanh toán)\n\n" +
+          "Mã đơn: #" + orderId + "\n" +
           "Tên khách: " + fullName + "\n" +
           "Email: " + email + "\n" +
-          "SĐT Zalo: " + zalo
+          "SĐT/Zalo: " + zalo + "\n" +
+          "Trạng thái: pending"
         );
       }
 
@@ -561,8 +579,8 @@
         });
       }
 
-      async function notifyTelegramLead(fullName, email, zalo) {
-        var text = buildTelegramLeadText(fullName, email, zalo);
+      async function notifyTelegramOrder(orderId, fullName, email, zalo) {
+        var text = buildTelegramOrderText(orderId, fullName, email, zalo);
         var getUrl = telegramSendMessageUrl(text);
         var postUrl = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage";
 
@@ -615,21 +633,28 @@
         }
 
         try {
-          await insertLead(fullName, email, zalo);
-          await notifyTelegramLead(fullName, email, zalo);
+          var order = await createOrderFromForm(fullName, email, zalo);
+          await notifyTelegramOrder(order.id, fullName, email, zalo);
 
           if (window.TT_setLeadSession) {
-            window.TT_setLeadSession({ name: fullName, email: email, zalo: zalo });
+            window.TT_setLeadSession({
+              orderId: order.id,
+              name: fullName,
+              email: email,
+              zalo: zalo,
+            });
           }
           window.location.href = "/payment";
           return;
         } catch (error) {
           if (isPermissionError(error)) {
-            alert("Form đã kết nối Supabase nhưng bảng leads chưa cho phép ghi dữ liệu. Hãy bật policy INSERT cho role anon.");
+            alert(
+              "Form đã kết nối Supabase nhưng bảng orders chưa cho phép ghi dữ liệu. Hãy bật policy INSERT cho role anon."
+            );
           } else {
-            alert("Có lỗi xảy ra!");
+            alert("Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại.");
           }
-          console.error("Supabase insert failed:", error);
+          console.error("Supabase orders insert failed:", error);
         } finally {
           if (submitBtn) {
             submitBtn.disabled = false;

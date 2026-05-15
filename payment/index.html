@@ -66,13 +66,14 @@
       var denied = document.getElementById("gate-denied");
       var panel = document.getElementById("payment-panel");
 
-      if (!lead || !lead.name) {
+      if (!lead || !lead.name || !lead.orderId) {
         denied.classList.remove("hidden");
         return;
       }
 
       panel.classList.remove("hidden");
-      document.getElementById("lead-name").textContent = lead.name;
+      document.getElementById("lead-name").textContent =
+        lead.name + " (đơn #" + lead.orderId + ")";
       document.getElementById("lead-email").textContent = lead.email
         ? "Email: " + lead.email + (lead.zalo ? " · Zalo: " + lead.zalo : "")
         : lead.zalo
@@ -80,7 +81,9 @@
           : "";
       document.getElementById("amount-label").textContent = window.TT_formatVnd(cfg.amount);
       document.getElementById("des-label").textContent = cfg.transferDesc;
-      document.getElementById("payment-qr").src = window.TT_buildSepayQrUrl(cfg);
+      var qrImg = document.getElementById("payment-qr");
+      qrImg.src = window.TT_buildSepayQrUrl(cfg);
+      qrImg.alt = "QR thanh toán đơn #" + lead.orderId;
 
       document.getElementById("btn-paid").addEventListener("click", function () {
         sessionStorage.setItem("tt_payment_confirmed", "1");
