@@ -73,7 +73,7 @@ function findOrderByTransferContent(
     if (!code || code.length < 6) continue;
     if (!haystack.includes(code)) continue;
     const expected = Math.round(Number(row.amount) || 0);
-    if (expected > 0 && amount !== expected) continue;
+    if (expected > 0 && Math.abs(amount - expected) > 1) continue;
     return row;
   }
   return null;
