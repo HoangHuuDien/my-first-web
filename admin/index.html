@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/admin/admin.css?v=20">
+  <link rel="stylesheet" href="/admin/admin.css?v=21">
 </head>
 <body>
   <header class="top">
@@ -71,9 +71,11 @@
           <label>SĐT <input id="o-phone"></label>
           <label>Email <input id="o-email" type="email"></label>
           <label>Số tiền (VND) <input id="o-amount" type="number" min="0" step="1000" required></label>
+          <label>Mã CK (transaction_code) <input id="o-txcode" readonly></label>
           <label>Trạng thái
             <select id="o-status" required>
               <option value="pending">pending</option>
+              <option value="paid">paid</option>
               <option value="success">success</option>
               <option value="cancelled">cancelled</option>
             </select>
@@ -93,6 +95,6 @@
     </section>
   </main>
 
-  <script src="/admin/admin.js?v=20"></script>
+  <script src="/admin/admin.js?v=21"></script>
 </body>
 </html>

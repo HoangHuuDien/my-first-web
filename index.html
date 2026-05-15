@@ -516,40 +516,61 @@
         );
       }
 
+      function isUniqueViolation(error) {
+        var code = error && error.code;
+        var msg = normalizeText(error && error.message ? error.message : "");
+        return code === "23505" || msg.indexOf("duplicate") !== -1 || msg.indexOf("unique") !== -1;
+      }
+
       async function createOrderFromForm(fullName, email, zalo) {
         var payCfg = window.TT_PAYMENT_CONFIG || {};
         var amount = Number(payCfg.amount) || 500000;
-        var transferContent = payCfg.transferDesc || "TVBT500";
+        var maxAttempts = 8;
+        var attempt = 0;
+        var lastError = null;
 
-        var response = await supabaseClient
-          .from("orders")
-          .insert([
-            {
-              customer_name: fullName,
-              customer_phone: zalo,
-              customer_email: email,
-              amount: amount,
-              status: "pending",
-              transfer_content: transferContent,
-              product_note: "Đăng ký form trang chủ — chờ thanh toán",
-            },
-          ])
-          .select("id")
-          .single();
+        while (attempt < maxAttempts) {
+          attempt += 1;
+          var txCode =
+            window.TT_generateTransactionCode && window.TT_generateTransactionCode();
+          if (!txCode) {
+            txCode = "TVBT_" + String(Date.now()).slice(-5);
+          }
 
-        if (response.error) {
-          throw response.error;
+          var response = await supabaseClient
+            .from("orders")
+            .insert([
+              {
+                customer_name: fullName,
+                customer_phone: zalo,
+                customer_email: email,
+                amount: amount,
+                status: "pending",
+                transaction_code: txCode,
+                transfer_content: txCode,
+                product_note: "Đăng ký form trang chủ — chờ thanh toán",
+              },
+            ])
+            .select("id,transaction_code")
+            .single();
+
+          if (!response.error && response.data && response.data.id) {
+            return response.data;
+          }
+          lastError = response.error;
+          if (response.error && isUniqueViolation(response.error)) {
+            continue;
+          }
+          throw response.error || new Error("Không tạo được đơn hàng.");
         }
-        if (!response.data || !response.data.id) {
-          throw new Error("Không nhận được mã đơn hàng sau khi lưu.");
-        }
-        return response.data;
+        throw lastError || new Error("Không tạo được mã giao dịch duy nhất.");
       }
 
-      function buildTelegramOrderText(orderId, fullName, email, zalo) {
+      function buildTelegramOrderText(orderId, fullName, email, zalo, transactionCode) {
         return (
           "📩 Đơn mới từ form (chờ thanh toán)\n\n" +
           "Mã đơn: #" + orderId + "\n" +
+          "Mã CK: " + (transactionCode || "-") + "\n" +
           "Tên khách: " + fullName + "\n" +
           "Email: " + email + "\n" +
           "SĐT/Zalo: " + zalo + "\n" +
@@ -579,8 +600,8 @@
         });
       }
 
-      async function notifyTelegramOrder(orderId, fullName, email, zalo) {
-        var text = buildTelegramOrderText(orderId, fullName, email, zalo);
+      async function notifyTelegramOrder(orderId, fullName, email, zalo, transactionCode) {
+        var text = buildTelegramOrderText(orderId, fullName, email, zalo, transactionCode);
         var getUrl = telegramSendMessageUrl(text);
         var postUrl = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage";
 
@@ -634,11 +655,18 @@
 
         try {
           var order = await createOrderFromForm(fullName, email, zalo);
-          await notifyTelegramOrder(order.id, fullName, email, zalo);
+          await notifyTelegramOrder(
+            order.id,
+            fullName,
+            email,
+            zalo,
+            order.transaction_code
+          );
 
           if (window.TT_setLeadSession) {
             window.TT_setLeadSession({
               orderId: order.id,
+              transactionCode: order.transaction_code,
               name: fullName,
               email: email,
               zalo: zalo,

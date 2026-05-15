@@ -29,8 +29,8 @@
 
   <main class="mx-auto max-w-lg px-4 py-10">
     <div id="gate-denied" class="hidden rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
-      <p class="text-lg font-semibold text-amber-900">Bạn cần đăng ký trước</p>
-      <p class="mt-2 text-stone-600">Vui lòng điền form trên trang chủ để nhận mã thanh toán.</p>
+      <p class="text-lg font-semibold text-amber-900" id="gate-denied-title">Bạn cần đăng ký trước</p>
+      <p class="mt-2 text-stone-600" id="gate-denied-body">Vui lòng điền form trên trang chủ để tạo đơn và nhận mã chuyển khoản riêng.</p>
       <a href="/#contact-form" class="mt-5 inline-block rounded-full bg-brand-red px-6 py-3 font-bold text-white">Điền form đăng ký</a>
     </div>
 
@@ -39,56 +39,164 @@
         <p class="text-sm font-medium uppercase tracking-wide text-brand-gold">Bước 2 / 3</p>
         <h1 class="mt-1 text-2xl font-bold text-stone-900">Thanh toán phí tư vấn</h1>
         <p class="mt-2 text-stone-600">
-          Cảm ơn <strong id="lead-name" class="text-stone-900">bạn</strong> — thông tin đã được lưu. Quét mã QR bên dưới để hoàn tất.
+          Cảm ơn <strong id="lead-name" class="text-stone-900">bạn</strong> — đơn đã được tạo. Vui lòng chuyển khoản đúng <strong>nội dung bên dưới</strong> để hệ thống tự động xác nhận.
         </p>
         <p id="lead-email" class="mt-1 text-sm text-stone-500"></p>
       </div>
 
-      <div class="rounded-2xl border border-stone-200 bg-white p-6 text-center shadow-md">
-        <p class="text-lg font-semibold">Số tiền: <span id="amount-label" class="text-brand-red">500.000đ</span></p>
-        <p class="mt-1 text-sm text-stone-500">Chuyển khoản MB — nội dung: <strong id="des-label">TVBT500</strong></p>
-        <img id="payment-qr" class="mx-auto mt-5 rounded-xl border border-stone-100" width="280" height="280" alt="QR thanh toán">
-        <p class="mt-4 text-xs text-stone-500">Sau khi chuyển khoản, bấm nút xác nhận để nhận quà tặng.</p>
+      <div class="rounded-2xl border border-amber-100 bg-amber-50/80 p-4 text-center">
+        <p class="text-sm font-semibold text-stone-800">Vui lòng chuyển khoản với nội dung:</p>
+        <p id="tx-code-display" class="mt-2 select-all font-mono text-xl font-bold tracking-wide text-brand-red"></p>
+        <p class="mt-2 text-xs text-stone-500">Sao chép nguyên vẹn — không thêm hay bớt ký tự.</p>
       </div>
 
-      <button type="button" id="btn-paid" class="w-full rounded-full bg-gradient-to-b from-red-500 to-red-600 py-4 text-lg font-bold text-white shadow-lg shadow-red-500/30 transition hover:brightness-105">
-        Tôi đã chuyển khoản xong
-      </button>
-      <p class="text-center text-xs text-stone-400">Hệ thống sẽ xác nhận tự động khi nhận được tiền (SePay). Nút trên dùng khi bạn vừa chuyển xong.</p>
+      <div class="rounded-2xl border border-stone-200 bg-white p-6 text-center shadow-md">
+        <p class="text-lg font-semibold">Số tiền: <span id="amount-label" class="text-brand-red">500.000đ</span></p>
+        <p class="mt-1 text-sm text-stone-500">Chuyển khoản MB — QR đã nhúng đúng số tiền và nội dung CK.</p>
+        <img id="payment-qr" class="mx-auto mt-5 rounded-xl border border-stone-100" width="280" height="280" alt="QR thanh toán">
+        <p id="poll-status" class="mt-4 text-sm text-stone-600">Đang chờ xác nhận chuyển khoản tự động…</p>
+        <p class="mt-2 text-center text-xs text-stone-400">Sau khi ngân hàng báo có tiền, trang sẽ tự chuyển sang bước cảm ơn — không cần bấm thêm.</p>
+      </div>
     </div>
   </main>
 
   <script src="/js/payment-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (function () {
-      var cfg = window.TT_PAYMENT_CONFIG;
+      var SUPABASE_URL = "https://wbpzrebgdirdmtfiqrls.supabase.co/";
+      var SUPABASE_KEY = "sb_publishable_FnplzjXonbDizjgOewGAGw_TKvPcZg9";
+
+      var cfg = window.TT_PAYMENT_CONFIG || {};
       var lead = window.TT_getLeadSession();
       var denied = document.getElementById("gate-denied");
       var panel = document.getElementById("payment-panel");
+      var pollTimer = null;
 
-      if (!lead || !lead.name || !lead.orderId) {
+      function goThankYou() {
+        if (pollTimer) clearInterval(pollTimer);
+        window.location.href = "/thank-you";
+      }
+
+      function startPollingOrderStatus(supabaseClient, orderId) {
+        var n = 0;
+        var max = 480;
+        pollTimer = setInterval(function () {
+          n += 1;
+          if (n > max) {
+            clearInterval(pollTimer);
+            var el = document.getElementById("poll-status");
+            if (el) {
+              el.textContent =
+                "Chưa nhận được xác nhận. Kiểm tra lại nội dung CK hoặc thử sau vài phút.";
+            }
+            return;
+          }
+          supabaseClient
+            .from("orders")
+            .select("status")
+            .eq("id", orderId)
+            .maybeSingle()
+            .then(function (res) {
+              if (res.error) return;
+              var st = res.data && res.data.status;
+              if (window.TT_isOrderPaidStatus && window.TT_isOrderPaidStatus(st)) {
+                goThankYou();
+              }
+            });
+        }, 2500);
+      }
+
+      function showPaymentUI(transactionCode, orderId) {
+        panel.classList.remove("hidden");
+        document.getElementById("lead-name").textContent =
+          (lead.name || "bạn") + " (đơn #" + orderId + ")";
+        document.getElementById("lead-email").textContent = lead.email
+          ? "Email: " + lead.email + (lead.zalo ? " · Zalo: " + lead.zalo : "")
+          : lead.zalo
+            ? "Zalo: " + lead.zalo
+            : "";
+        document.getElementById("amount-label").textContent = window.TT_formatVnd(cfg.amount);
+        document.getElementById("tx-code-display").textContent = transactionCode;
+
+        var qrCfg = {
+          account: cfg.account,
+          bank: cfg.bank,
+          amount: cfg.amount,
+          transactionCode: transactionCode,
+          transferDesc: transactionCode,
+        };
+        var qrImg = document.getElementById("payment-qr");
+        qrImg.src = window.TT_buildSepayQrUrl(qrCfg);
+        qrImg.alt = "QR thanh toán — " + transactionCode;
+
+        if (!window.supabase || !window.supabase.createClient) return;
+        var client = window.supabase.createClient(
+          SUPABASE_URL.trim(),
+          SUPABASE_KEY.trim()
+        );
+        startPollingOrderStatus(client, orderId);
+      }
+
+      if (!lead || !lead.orderId) {
         denied.classList.remove("hidden");
         return;
       }
 
-      panel.classList.remove("hidden");
-      document.getElementById("lead-name").textContent =
-        lead.name + " (đơn #" + lead.orderId + ")";
-      document.getElementById("lead-email").textContent = lead.email
-        ? "Email: " + lead.email + (lead.zalo ? " · Zalo: " + lead.zalo : "")
-        : lead.zalo
-          ? "Zalo: " + lead.zalo
-          : "";
-      document.getElementById("amount-label").textContent = window.TT_formatVnd(cfg.amount);
-      document.getElementById("des-label").textContent = cfg.transferDesc;
-      var qrImg = document.getElementById("payment-qr");
-      qrImg.src = window.TT_buildSepayQrUrl(cfg);
-      qrImg.alt = "QR thanh toán đơn #" + lead.orderId;
+      if (!window.supabase || !window.supabase.createClient) {
+        var gt = document.getElementById("gate-denied-title");
+        var gb = document.getElementById("gate-denied-body");
+        if (gt) gt.textContent = "Không tải được thư viện";
+        if (gb) gb.textContent = "Không tải được Supabase SDK. Thử tải lại trang.";
+        denied.classList.remove("hidden");
+        return;
+      }
 
-      document.getElementById("btn-paid").addEventListener("click", function () {
-        sessionStorage.setItem("tt_payment_confirmed", "1");
-        window.location.href = "/thank-you";
-      });
+      var supabaseClient = window.supabase.createClient(
+        SUPABASE_URL.trim(),
+        SUPABASE_KEY.trim()
+      );
+
+      if (lead.transactionCode) {
+        showPaymentUI(lead.transactionCode, lead.orderId);
+        return;
+      }
+
+      supabaseClient
+        .from("orders")
+        .select("transaction_code,status")
+        .eq("id", lead.orderId)
+        .maybeSingle()
+        .then(function (res) {
+          if (res.error || !res.data) {
+            var t = document.getElementById("gate-denied-title");
+            var b = document.getElementById("gate-denied-body");
+            if (t) t.textContent = "Không tải được đơn";
+            if (b) b.textContent = "Không đọc được đơn hàng. Thử lại sau hoặc về trang chủ.";
+            denied.classList.remove("hidden");
+            return;
+          }
+          if (window.TT_isOrderPaidStatus && window.TT_isOrderPaidStatus(res.data.status)) {
+            goThankYou();
+            return;
+          }
+          var code = res.data.transaction_code;
+          if (!code) {
+            var t = document.getElementById("gate-denied-title");
+            var b = document.getElementById("gate-denied-body");
+            if (t) t.textContent = "Thiếu mã giao dịch";
+            if (b)
+              b.textContent =
+                "Đơn chưa có mã giao dịch. Vui lòng liên hệ hỗ trợ hoặc tạo đơn mới từ trang chủ.";
+            denied.classList.remove("hidden");
+            return;
+          }
+          lead.transactionCode = code;
+          try {
+            sessionStorage.setItem("tt_lead", JSON.stringify(lead));
+          } catch (e) {}
+          showPaymentUI(code, lead.orderId);
+        });
     })();
   </script>
 </body>

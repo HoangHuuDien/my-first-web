@@ -43,6 +43,7 @@
       label: "Đơn hàng",
       listColumns: [
         { key: "id", label: "ID" },
+        { key: "transaction_code", label: "Mã CK" },
         { key: "customer_name", label: "Khách hàng" },
         { key: "amount", label: "Số tiền" },
         { key: "status", label: "Trạng thái" },
@@ -226,7 +227,7 @@
   function renderStatusBadge(status) {
     var s = String(status || "pending").toLowerCase();
     var cls = "status-badge pending";
-    if (s === "success") cls = "status-badge success";
+    if (s === "success" || s === "paid") cls = "status-badge success";
     else if (s === "cancelled") cls = "status-badge cancelled";
     return '<span class="' + cls + '">' + escapeHtml(s) + "</span>";
   }
@@ -284,7 +285,7 @@
       b.disabled = true;
     });
 
-    var nextStatus = action === "confirm" ? "success" : "cancelled";
+    var nextStatus = action === "confirm" ? "paid" : "cancelled";
     patchOrderStatus(orderId, nextStatus)
       .then(function () {
         showBanner("", false);
@@ -453,10 +454,16 @@
           document.getElementById("o-phone").value = row.customer_phone || "";
           document.getElementById("o-email").value = row.customer_email || "";
           document.getElementById("o-amount").value = row.amount || 0;
-        var st = String(row.status || "pending").toLowerCase();
-        document.getElementById("o-status").value =
-          st === "success" || st === "cancelled" ? st : "pending";
+          var st = String(row.status || "pending").toLowerCase();
+          var sel = document.getElementById("o-status");
+          if (["pending", "success", "paid", "cancelled"].indexOf(st) !== -1) {
+            sel.value = st;
+          } else {
+            sel.value = "pending";
+          }
           document.getElementById("o-note").value = row.product_note || "";
+          var txEl = document.getElementById("o-txcode");
+          if (txEl) txEl.value = row.transaction_code || "";
           document.getElementById("o-transfer").value =
             row.transfer_content || "";
           document.getElementById("o-created").textContent =

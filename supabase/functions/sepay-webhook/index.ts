@@ -1,7 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const PAYMENT_CODE = "TVBT500";
-
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -17,60 +15,95 @@ function isAuthorized(req: Request, expectedKey: string | undefined) {
   return auth.toLowerCase() === expected.toLowerCase();
 }
 
+/** Chuẩn hóa để so khớp nội dung CK (bỏ khoảng trắng, chữ hoa) */
+function normalizeMatch(s: string) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "")
+    .toUpperCase();
+}
+
 function paymentHaystack(data: Record<string, unknown>) {
-  return [data.content, data.description, data.code]
-    .map(function (v) {
-      return String(v || "");
-    })
-    .join(" ");
+  return normalizeMatch(
+    [data.content, data.description, data.code].map((v) => String(v || "")).join("|"),
+  );
 }
 
-function matchesPaymentCode(data: Record<string, unknown>) {
-  return paymentHaystack(data).includes(PAYMENT_CODE);
-}
-
-async function insertSalesOrder(
-  data: Record<string, unknown>,
-  amount: number,
-  status: "pending" | "success",
-) {
+function getSupabaseRest() {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceKey) {
-    console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for orders insert");
-    return { ok: false, reason: "missing_supabase_secrets" };
+    return { ok: false as const, reason: "missing_supabase_secrets" };
   }
+  const base = supabaseUrl.replace(/\/$/, "");
+  return { ok: true as const, base, serviceKey };
+}
 
-  const content = String(data.content || "").trim();
-  const row = {
-    customer_name: content ? content.slice(0, 120) : "Khách SePay",
-    customer_phone: null,
-    customer_email: null,
-    amount: Math.round(amount),
-    status,
-    payment_code: String(data.code || "") || null,
-    transfer_content: content || String(data.description || "") || null,
-    product_note: matchesPaymentCode(data) ? "TVBT500" : null,
-    updated_at: new Date().toISOString(),
-  };
+type PendingOrder = { id: number; transaction_code: string; amount: number | string };
 
-  const res = await fetch(supabaseUrl.replace(/\/$/, "") + "/rest/v1/orders", {
-    method: "POST",
+async function fetchPendingOrdersWithCode(
+  base: string,
+  serviceKey: string,
+): Promise<{ ok: true; rows: PendingOrder[] } | { ok: false; detail: string }> {
+  const url =
+    `${base}/rest/v1/orders?status=eq.pending&transaction_code=not.is.null&select=id,transaction_code,amount&order=id.desc&limit=500`;
+  const res = await fetch(url, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: "Bearer " + serviceKey,
+    },
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    return { ok: false, detail: t };
+  }
+  const rows = (await res.json()) as PendingOrder[];
+  return { ok: true, rows: Array.isArray(rows) ? rows : [] };
+}
+
+function findOrderByTransferContent(
+  haystack: string,
+  rows: PendingOrder[],
+  transferAmount: number,
+): PendingOrder | null {
+  const amount = Math.round(transferAmount);
+  for (const row of rows) {
+    const code = normalizeMatch(row.transaction_code || "");
+    if (!code || code.length < 6) continue;
+    if (!haystack.includes(code)) continue;
+    const expected = Math.round(Number(row.amount) || 0);
+    if (expected > 0 && amount !== expected) continue;
+    return row;
+  }
+  return null;
+}
+
+async function markOrderPaid(
+  base: string,
+  serviceKey: string,
+  orderId: number,
+  transferNote: string,
+): Promise<{ ok: true } | { ok: false; detail: string }> {
+  const patchUrl = `${base}/rest/v1/orders?id=eq.${orderId}`;
+  const res = await fetch(patchUrl, {
+    method: "PATCH",
     headers: {
       apikey: serviceKey,
       Authorization: "Bearer " + serviceKey,
       "Content-Type": "application/json",
       Prefer: "return=minimal",
     },
-    body: JSON.stringify(row),
+    body: JSON.stringify({
+      status: "paid",
+      transfer_content: String(transferNote || "").slice(0, 500),
+      updated_at: new Date().toISOString(),
+    }),
   });
-
   if (!res.ok) {
-    const errText = await res.text();
-    console.error("Supabase orders insert error:", res.status, errText);
-    return { ok: false, reason: "supabase_insert_error", detail: errText };
+    const t = await res.text();
+    return { ok: false, detail: t };
   }
-
   return { ok: true };
 }
 
@@ -120,10 +153,37 @@ Deno.serve(async (req) => {
 
   const amount = Number(data.transferAmount || 0);
   const formatted = amount.toLocaleString("vi-VN");
-  const hasCode = matchesPaymentCode(data);
+  const haystack = paymentHaystack(data);
+  const rawNote =
+    String(data.content || "").trim() ||
+    String(data.description || "").trim() ||
+    "";
+
+  const sb = getSupabaseRest();
+  let matched: PendingOrder | null = null;
+  let patchOk = true;
+  let patchDetail = "";
+
+  if (sb.ok) {
+    const pending = await fetchPendingOrdersWithCode(sb.base, sb.serviceKey);
+    if (pending.ok) {
+      matched = findOrderByTransferContent(haystack, pending.rows, amount);
+      if (matched) {
+        const upd = await markOrderPaid(sb.base, sb.serviceKey, matched.id, rawNote);
+        patchOk = upd.ok;
+        if (!upd.ok) patchDetail = upd.detail;
+      }
+    } else {
+      console.error("fetchPendingOrders:", pending.detail);
+    }
+  }
 
   const message =
-    (hasCode ? "💰 Thanh toán SePay (mã TVBT500)\n\n" : "💰 Tiền vào tài khoản (SePay webhook)\n\n") +
+    (matched && patchOk
+      ? "✅ SePay — đã khớp mã & cập nhật đơn #" + matched.id + " → paid\n\n"
+      : matched && !patchOk
+      ? "⚠️ SePay — khớp mã đơn #" + matched.id + " nhưng PATCH lỗi\n\n"
+      : "💰 SePay — tiền vào (chưa khớp đơn pending)\n\n") +
     "Số tiền: " + formatted + "đ\n" +
     "Nội dung: " + String(data.content || "").trim() + "\n" +
     "Mô tả: " + String(data.description || "").trim() + "\n" +
@@ -131,17 +191,15 @@ Deno.serve(async (req) => {
     "TK: " + String(data.accountNumber || "-") + "\n" +
     "Lúc: " + String(data.transactionDate || "-");
 
-  const orderStatus = hasCode ? "success" : "pending";
-  const orderInsert = await insertSalesOrder(data, amount, orderStatus);
   const telegram = await notifyTelegram(message);
 
   return jsonResponse({
     success: true,
     telegram_sent: telegram.ok,
-    payment_code_matched: hasCode,
-    order_saved: orderInsert.ok,
-    order_status: orderStatus,
+    order_matched: !!matched,
+    order_id: matched?.id ?? null,
+    order_updated_paid: matched ? patchOk : false,
     ...(telegram.ok ? {} : { telegram_error: telegram.reason }),
-    ...(orderInsert.ok ? {} : { order_error: orderInsert.reason }),
+    ...(matched && !patchOk ? { order_error: "patch_failed", detail: patchDetail } : {}),
   });
 });

@@ -25,14 +25,15 @@
 </head>
 <body class="min-h-screen bg-gradient-to-b from-stone-100 via-amber-50/40 to-stone-100 font-sans text-stone-900 antialiased">
   <main class="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-4 py-12 text-center">
-    <div class="w-full rounded-3xl border border-stone-200/80 bg-white p-8 shadow-xl shadow-stone-300/30 md:p-12">
+    <p id="verify-msg" class="mb-6 max-w-md text-sm text-stone-600">Đang xác minh thanh toán…</p>
+
+    <div id="thank-card" class="hidden w-full rounded-3xl border border-stone-200/80 bg-white p-8 shadow-xl shadow-stone-300/30 md:p-12">
       <div class="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl" aria-hidden="true">✓</div>
       <h1 class="font-serif text-3xl font-semibold leading-tight text-stone-900 md:text-4xl">
-        Chúc mừng bạn đã đăng ký thành công!
+        Cảm ơn bạn — thanh toán đã được xác nhận!
       </h1>
       <p class="mx-auto mt-4 max-w-md text-lg leading-relaxed text-stone-600">
-        Cảm ơn bạn đã tin tưởng Thuận Thiên. Mình đã nhận thông tin của bạn — team sẽ liên hệ trong thời gian sớm nhất.
-        Phần quà số bên dưới dành cho bạn ngay bây giờ.
+        Thuận Thiên đã nhận được thanh toán của bạn. Phần quà số bên dưới dành cho bạn ngay bây giờ.
       </p>
       <a
         id="gift-btn"
@@ -47,32 +48,22 @@
         <a href="https://xembattu.vercel.app/" class="font-medium text-brand-gold underline-offset-2 hover:underline">Quay lại trang chủ</a>
       </p>
     </div>
-    <p id="gate-msg" class="mt-6 hidden text-sm text-amber-800"></p>
+
+    <p id="gate-msg" class="mt-6 hidden max-w-md text-sm text-amber-800"></p>
   </main>
 
   <script src="/js/payment-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (function () {
+      var SUPABASE_URL = "https://wbpzrebgdirdmtfiqrls.supabase.co/";
+      var SUPABASE_KEY = "sb_publishable_FnplzjXonbDizjgOewGAGw_TKvPcZg9";
+
       var lead = window.TT_getLeadSession();
-      var confirmed = sessionStorage.getItem("tt_payment_confirmed") === "1";
+      var verifyEl = document.getElementById("verify-msg");
+      var thankCard = document.getElementById("thank-card");
       var gate = document.getElementById("gate-msg");
-
-      if (!lead || !lead.name || !lead.orderId) {
-        gate.textContent = "Bạn chưa hoàn tất bước đăng ký. Hãy quay lại trang chủ điền form trước.";
-        gate.classList.remove("hidden");
-      } else if (!confirmed) {
-        gate.textContent =
-          "Nếu chưa thanh toán, bạn có thể quay lại trang thanh toán để quét QR.";
-        gate.classList.remove("hidden");
-        var link = document.createElement("a");
-        link.href = "/payment";
-        link.className = "ml-1 font-semibold underline";
-        link.textContent = "Đi tới thanh toán";
-        gate.appendChild(link);
-      }
-
-      document.getElementById("gift-btn").href =
-        window.TT_PAYMENT_CONFIG.giftDownloadUrl;
+      var pollTimer = null;
 
       function fireConfetti() {
         if (typeof confetti !== "function") return;
@@ -100,7 +91,92 @@
         }, 400);
       }
 
-      window.addEventListener("load", fireConfetti);
+      function showPaidUi() {
+        if (pollTimer) clearInterval(pollTimer);
+        if (verifyEl) verifyEl.classList.add("hidden");
+        thankCard.classList.remove("hidden");
+        document.getElementById("gift-btn").href =
+          window.TT_PAYMENT_CONFIG.giftDownloadUrl;
+        fireConfetti();
+      }
+
+      function showGate(html) {
+        if (pollTimer) clearInterval(pollTimer);
+        if (verifyEl) verifyEl.classList.add("hidden");
+        thankCard.classList.add("hidden");
+        gate.innerHTML = html;
+        gate.classList.remove("hidden");
+      }
+
+      if (!lead || !lead.orderId) {
+        if (verifyEl) verifyEl.classList.add("hidden");
+        showGate(
+          "Bạn chưa hoàn tất đăng ký. <a href=\"/#contact-form\" class=\"font-semibold underline\">Về trang chủ</a>"
+        );
+        return;
+      }
+
+      if (!window.supabase || !window.supabase.createClient) {
+        if (verifyEl) verifyEl.textContent = "Không tải được Supabase SDK.";
+        return;
+      }
+
+      var client = window.supabase.createClient(
+        SUPABASE_URL.trim(),
+        SUPABASE_KEY.trim()
+      );
+
+      function checkOnce() {
+        return client
+          .from("orders")
+          .select("status")
+          .eq("id", lead.orderId)
+          .maybeSingle()
+          .then(function (res) {
+            if (res.error) throw res.error;
+            return res.data && res.data.status;
+          });
+      }
+
+      checkOnce()
+        .then(function (status) {
+          if (window.TT_isOrderPaidStatus && window.TT_isOrderPaidStatus(status)) {
+            showPaidUi();
+            return;
+          }
+          if (String(status || "").toLowerCase() === "cancelled") {
+            showGate("Đơn này đã bị hủy. <a href=\"/\" class=\"font-semibold underline\">Trang chủ</a>");
+            return;
+          }
+          if (verifyEl) {
+            verifyEl.textContent =
+              "Đang chờ hệ thống xác nhận thanh toán (tự động)… Bạn có thể đóng trang, sau khi thanh toán xong mở lại link cảm ơn.";
+          }
+          var n = 0;
+          pollTimer = setInterval(function () {
+            n += 1;
+            checkOnce()
+              .then(function (st) {
+                if (window.TT_isOrderPaidStatus && window.TT_isOrderPaidStatus(st)) {
+                  showPaidUi();
+                } else if (String(st || "").toLowerCase() === "cancelled") {
+                  showGate("Đơn đã hủy. <a href=\"/\" class=\"font-semibold underline\">Trang chủ</a>");
+                }
+              })
+              .catch(function () {});
+            if (n >= 120) {
+              clearInterval(pollTimer);
+              if (thankCard.classList.contains("hidden")) {
+                showGate(
+                  "Chưa thấy thanh toán. <a href=\"/payment\" class=\"font-semibold underline\">Quay lại thanh toán</a>"
+                );
+              }
+            }
+          }, 2500);
+        })
+        .catch(function () {
+          if (verifyEl) verifyEl.textContent = "Không kiểm tra được đơn hàng.";
+        });
     })();
   </script>
 </body>
