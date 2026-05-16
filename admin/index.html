@@ -7,10 +7,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/admin/admin.css?v=25">
+  <script>window.__ADMIN_ASSET_V = "27";</script>
+  <link rel="stylesheet" href="/admin/admin.css?v=27">
   <script>
     (function () {
       var p = new URLSearchParams(location.search);
+      var bust = window.__ADMIN_ASSET_V || "27";
+      if (p.get("emailTest") === "1") {
+        bust = bust + "-" + Date.now();
+      }
+      var link = document.querySelector('link[href*="/admin/admin.css"]');
+      if (link) link.href = "/admin/admin.css?v=" + bust;
       if (
         p.get("emailTest") === "1" ||
         location.hostname === "localhost" ||
@@ -114,6 +121,16 @@
   </main>
 
   <div id="admin-toast" class="admin-toast" role="status" aria-live="polite" aria-atomic="true"></div>
-  <script src="/admin/admin.js?v=25"></script>
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search);
+      var bust = window.__ADMIN_ASSET_V || "27";
+      if (p.get("emailTest") === "1") bust = bust + "-" + Date.now();
+      var s = document.createElement("script");
+      s.src = "/admin/admin.js?v=" + bust;
+      s.defer = true;
+      document.body.appendChild(s);
+    })();
+  </script>
 </body>
 </html>

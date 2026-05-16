@@ -160,7 +160,11 @@
     fetch(apiUrl(EMAIL_SEQUENCE_TEST_URL), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ testMode: true }),
+      body: JSON.stringify({
+        testMode: true,
+        resetSequence: true,
+        sendBothEmails: true,
+      }),
     })
       .then(function (res) {
         return res.json().then(function (data) {
@@ -184,6 +188,9 @@
         var msg = "Đã gửi thành công " + sent + " email!";
         if (sent > 0) {
           msg += " (Email 2: " + e2 + ", Email 3: " + e3 + ")";
+        }
+        if (out.data.report && out.data.report.samples) {
+          console.log("[Admin] email samples", out.data.report.samples);
         }
         if (out.data.hint) {
           msg += " " + out.data.hint;
@@ -410,6 +417,11 @@
     if (col.key === "amount") return formatMoney(v);
     if (col.key === "created_at") return formatDate(v);
     if (col.key === "status") return renderStatusBadge(v);
+    if (col.key === "customer_email") {
+      if (!v || !String(v).trim()) {
+        return '<span class="cell-missing">— thiếu email</span>';
+      }
+    }
     if (v == null) return "";
     var s = String(v);
     if (s.length > 48) return escapeHtml(s.slice(0, 45) + "…");

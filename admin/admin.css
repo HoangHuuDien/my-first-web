@@ -157,6 +157,12 @@ html.admin-email-test-mode .btn-email-test {
   font-weight: 500;
 }
 
+.cell-missing {
+  color: #e8b4b4;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 260px 1fr;
@@ -266,6 +272,7 @@ html.admin-email-test-mode .btn-email-test {
 }
 
 .list-wrap {
+  overflow-x: auto;
   padding: 16px;
   overflow: auto;
   border-right: 1px solid #d4cfc4;

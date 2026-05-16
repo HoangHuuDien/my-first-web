@@ -1,0 +1,8 @@
+-- (Tùy chọn) Kiểm tra đơn pending thiếu email — chạy trong SQL Editor nếu nút test báo 0 email:
+-- SELECT id, customer_name, customer_email, customer_phone, status, created_at
+-- FROM public.orders
+-- WHERE status = 'pending'
+-- ORDER BY id DESC;
+--
+-- Cập nhật tay một đơn (thay email thật):
+-- UPDATE public.orders SET customer_email = 'khach@example.com' WHERE id = 14;
