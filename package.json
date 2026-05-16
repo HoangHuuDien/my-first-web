@@ -5,5 +5,8 @@
   "description": "Landing Thuận Thiên + chat OpenRouter trên Vercel",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "resend": "^4.0.0"
   }
 }

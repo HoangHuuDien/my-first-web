@@ -15,12 +15,13 @@ function isAuthorized(req: Request, expectedKey: string | undefined) {
   return auth.toLowerCase() === expected.toLowerCase();
 }
 
-/** Chuẩn hóa để so khớp nội dung CK (bỏ khoảng trắng, chữ hoa) */
+/** Chuẩn hóa để so khớp nội dung CK: bỏ dấu, bỏ mọi khoảng trắng, bỏ gạch dưới (_), chữ hoa (không phân biệt hoa thường khi so). */
 function normalizeMatch(s: string) {
   return String(s || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, "")
+    .replace(/_/g, "")
     .toUpperCase();
 }
 
@@ -107,6 +108,13 @@ async function markOrderPaid(
   return { ok: true };
 }
 
+function sleep(ms: number) {
+  return new Promise(function (resolve) {
+    setTimeout(resolve, ms);
+  });
+}
+
+/** Gửi Telegram: tối đa 3 lần, cách nhau 1s khi lỗi mạng hoặc HTTP lỗi. */
 async function notifyTelegram(text: string) {
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
   const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
@@ -115,19 +123,39 @@ async function notifyTelegram(text: string) {
     return { ok: false, reason: "missing_telegram_secrets" };
   }
 
-  const res = await fetch("https://api.telegram.org/bot" + token + "/sendMessage", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text: text }),
-  });
+  const url = "https://api.telegram.org/bot" + token + "/sendMessage";
+  const body = JSON.stringify({ chat_id: chatId, text: text });
+  const maxAttempts = 3;
+  const delayMs = 1000;
+  let lastDetail = "";
 
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error("Telegram API error:", res.status, errText);
-    return { ok: false, reason: "telegram_api_error", detail: errText };
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (attempt > 1) {
+      await sleep(delayMs);
+    }
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: body,
+      });
+      if (res.ok) {
+        return { ok: true };
+      }
+      lastDetail = await res.text();
+      console.error("Telegram API error (attempt " + attempt + "/" + maxAttempts + "):", res.status, lastDetail);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      lastDetail = msg;
+      console.error("Telegram fetch failed (attempt " + attempt + "/" + maxAttempts + "):", msg);
+    }
   }
 
-  return { ok: true };
+  return {
+    ok: false,
+    reason: "telegram_api_error",
+    detail: lastDetail.slice(0, 500),
+  };
 }
 
 Deno.serve(async (req) => {

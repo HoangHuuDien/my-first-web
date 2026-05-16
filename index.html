@@ -625,6 +625,40 @@
         }
       }
 
+      async function sendWelcomeEmail(toEmail, fullName) {
+        var welcomeText =
+          "Chào " +
+          (fullName || "bạn") +
+          ",\n\n" +
+          "Chào mừng bạn đã tham gia danh sách chờ của Thuận Thiên (Xem Bát Tự). Mình đã nhận thông tin đăng ký của bạn.\n\n" +
+          "Bước tiếp theo: vui lòng hoàn tất thanh toán theo hướng dẫn trên website để team sắp xếp tư vấn cho bạn.\n\n" +
+          "Nếu không thấy thư trong hộp thư chính, bạn kiểm tra thêm mục Spam/Promotions nhé.\n\n" +
+          "Trân trọng,\nThuận Thiên";
+
+        var url = new URL("/api/send-email", window.location.origin).href;
+        var res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: toEmail,
+            subject: "Thuận Thiên — Chào mừng bạn đã tham gia danh sách chờ",
+            text: welcomeText,
+          }),
+        });
+
+        var data = null;
+        try {
+          data = await res.json();
+        } catch (parseErr) {
+          throw new Error("Phản hồi email không hợp lệ (HTTP " + res.status + ")");
+        }
+
+        if (!res.ok || !data || !data.ok) {
+          throw new Error((data && data.error) || "Gửi email thất bại (HTTP " + res.status + ")");
+        }
+        return true;
+      }
+
       var contactForm = findContactForm();
       if (!contactForm) {
         return;
@@ -655,6 +689,15 @@
 
         try {
           var order = await createOrderFromForm(fullName, email, zalo);
+
+          var emailSentOk = false;
+          try {
+            await sendWelcomeEmail(email, fullName);
+            emailSentOk = true;
+          } catch (emailErr) {
+            console.warn("[Form] send-email:", emailErr);
+          }
+
           await notifyTelegramOrder(
             order.id,
             fullName,
@@ -671,6 +714,10 @@
               email: email,
               zalo: zalo,
             });
+          }
+
+          if (emailSentOk) {
+            alert("Đăng ký thành công! Vui lòng kiểm tra email của bạn.");
           }
           window.location.href = "/payment";
           return;
