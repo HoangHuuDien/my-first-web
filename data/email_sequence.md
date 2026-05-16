@@ -64,6 +64,7 @@ https://xembattu.vercel.app/
 | Email | Cách gửi trong repo `my-first-web` |
 | --- | --- |
 | 1 | Ngay sau submit form: `index.html` → `POST /api/send-email` (nội dung khớp bảng trên). |
+| Xác nhận thanh toán | Khi đơn → `paid` / `success`: `data/order_confirmation_email.md` qua `POST /api/orders/send-confirmation` (SePay webhook, Admin xác nhận, hoặc trang thank-you). |
 | 2 | **≥ 48 giờ** sau `orders.created_at`, đơn vẫn `pending`: Vercel Cron → `GET /api/process-email-sequence` (đọc subject + nội dung từ file này). |
 | 3 | **≥ 24 giờ** sau `orders.sequence_email_2_sent_at`, đơn vẫn `pending`: cùng endpoint cron. |
 

@@ -114,6 +114,38 @@ function sleep(ms: number) {
   });
 }
 
+/** Gọi Vercel API gửi email xác nhận đơn (sau khi đơn → paid). */
+async function triggerOrderConfirmationEmail(orderId: number) {
+  const site =
+    (Deno.env.get("SITE_URL") || "https://xembattu.vercel.app").replace(/\/$/, "");
+  const secret =
+    Deno.env.get("ORDER_CONFIRM_SECRET")?.trim() ||
+    Deno.env.get("CRON_SECRET")?.trim() ||
+    "";
+  if (!secret) {
+    console.error("Missing ORDER_CONFIRM_SECRET or CRON_SECRET — skip confirmation email");
+    return;
+  }
+  const url = site + "/api/orders/send-confirmation";
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + secret,
+      },
+      body: JSON.stringify({ orderId }),
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      console.error("send-confirmation HTTP", res.status, t.slice(0, 400));
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("send-confirmation fetch failed:", msg);
+  }
+}
+
 /** Gửi Telegram: tối đa 3 lần, cách nhau 1s khi lỗi mạng hoặc HTTP lỗi. */
 async function notifyTelegram(text: string) {
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
@@ -200,6 +232,9 @@ Deno.serve(async (req) => {
         const upd = await markOrderPaid(sb.base, sb.serviceKey, matched.id, rawNote);
         patchOk = upd.ok;
         if (!upd.ok) patchDetail = upd.detail;
+        if (upd.ok) {
+          await triggerOrderConfirmationEmail(matched.id);
+        }
       }
     } else {
       console.error("fetchPendingOrders:", pending.detail);

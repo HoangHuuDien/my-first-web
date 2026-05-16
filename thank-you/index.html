@@ -91,6 +91,21 @@
         }, 400);
       }
 
+      function requestOrderConfirmationEmail() {
+        if (!lead || !lead.orderId || !lead.transactionCode) return;
+        var url = new URL("/api/orders/send-confirmation", window.location.origin).href;
+        fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: lead.orderId,
+            transactionCode: lead.transactionCode,
+          }),
+        }).catch(function (err) {
+          console.warn("[thank-you] send-confirmation:", err);
+        });
+      }
+
       function showPaidUi() {
         if (pollTimer) clearInterval(pollTimer);
         if (verifyEl) verifyEl.classList.add("hidden");
@@ -98,6 +113,7 @@
         document.getElementById("gift-btn").href =
           window.TT_PAYMENT_CONFIG.giftDownloadUrl;
         fireConfetti();
+        requestOrderConfirmationEmail();
       }
 
       function showGate(html) {

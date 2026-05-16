@@ -4,6 +4,10 @@ const {
   readJson,
   errorFromResponse,
 } = require("./_supabase");
+const {
+  trySendOrderConfirmation,
+  isPaidStatus,
+} = require("../lib/order-confirmation");
 
 var VIEWS = {
   products: {
@@ -147,6 +151,17 @@ module.exports = async function handler(req, res) {
       });
       var patchBody = await readJson(patchRes);
       if (!patchRes.ok) throw errorFromResponse(patchRes, patchBody, table);
+
+      if (
+        table === "orders" &&
+        patchPayload.status &&
+        isPaidStatus(patchPayload.status)
+      ) {
+        trySendOrderConfirmation(patchId).catch(function (err) {
+          console.error("[admin/records] order confirmation email:", err);
+        });
+      }
+
       res.status(200).json({ data: patchBody });
       return;
     }

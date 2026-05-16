@@ -7,6 +7,10 @@
     "api/process-email-sequence.js": {
       "maxDuration": 60,
       "includeFiles": "data/email_sequence.md"
+    },
+    "api/orders/send-confirmation.js": {
+      "maxDuration": 60,
+      "includeFiles": "data/order_confirmation_email.md"
     }
   },
   "crons": [

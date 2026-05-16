@@ -1,0 +1,58 @@
+const fs = require("fs");
+const path = require("path");
+const { Resend } = require("resend");
+
+function getResendApiKey() {
+  var fromEnv = process.env.RESEND_API_KEY && String(process.env.RESEND_API_KEY).trim();
+  if (fromEnv) return fromEnv;
+  var candidates = [
+    path.join(process.cwd(), "resend_config.txt"),
+    path.join(__dirname, "..", "..", "resend_config.txt"),
+  ];
+  for (var i = 0; i < candidates.length; i += 1) {
+    try {
+      if (fs.existsSync(candidates[i])) {
+        var line = fs.readFileSync(candidates[i], { encoding: "utf8" }).split(/\r?\n/)[0];
+        var key = (line || "").trim();
+        if (key) return key;
+      }
+    } catch (e) {}
+  }
+  return "";
+}
+
+function getResendFrom() {
+  return (
+    (process.env.RESEND_FROM && String(process.env.RESEND_FROM).trim()) ||
+    "Thuận Thiên <onboarding@resend.dev>"
+  );
+}
+
+async function sendResendEmail(to, subject, text, html) {
+  var apiKey = getResendApiKey();
+  if (!apiKey) {
+    throw new Error("Thiếu RESEND_API_KEY (hoặc resend_config.txt)");
+  }
+  var resend = new Resend(apiKey);
+  var payload = {
+    from: getResendFrom(),
+    to: [to],
+    subject: subject,
+  };
+  if (text) payload.text = text;
+  if (html) payload.html = html;
+  if (!text && !html) {
+    throw new Error("Thiếu nội dung email");
+  }
+  var result = await resend.emails.send(payload);
+  if (result.error) {
+    throw new Error(result.error.message || "Resend send failed");
+  }
+  return result.data && result.data.id;
+}
+
+module.exports = {
+  getResendApiKey: getResendApiKey,
+  getResendFrom: getResendFrom,
+  sendResendEmail: sendResendEmail,
+};
