@@ -156,7 +156,11 @@
     btn.disabled = true;
     showToast("Đang gửi email, vui lòng chờ...", { loading: true, persist: true });
 
-    fetch(apiUrl(EMAIL_SEQUENCE_TEST_URL), { method: "POST" })
+    fetch(apiUrl(EMAIL_SEQUENCE_TEST_URL), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ testMode: true }),
+    })
       .then(function (res) {
         return res.json().then(function (data) {
           return { res: res, data: data };
@@ -172,7 +176,17 @@
           typeof out.data.sent === "number"
             ? out.data.sent
             : 0;
-        showToast("Đã gửi thành công " + sent + " email!");
+        var r = out.data.report || {};
+        var e2 = (r.email2 && r.email2.sent) || 0;
+        var e3 = (r.email3 && r.email3.sent) || 0;
+        var msg = "Đã gửi thành công " + sent + " email!";
+        if (sent > 0) {
+          msg += " (Email 2: " + e2 + ", Email 3: " + e3 + ")";
+        } else {
+          msg +=
+            " Không có đơn pending nào còn thiếu Email 2/3 (hoặc thiếu email khách).";
+        }
+        showToast(msg);
         if (state.currentView === "orders") {
           return fetchList().then(fetchStats);
         }

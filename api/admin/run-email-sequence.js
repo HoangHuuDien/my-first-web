@@ -36,12 +36,13 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    var report = await runEmailSequence();
+    var report = await runEmailSequence({ ignoreTiming: true });
     res.statusCode = 200;
     res.end(
       JSON.stringify({
         ok: true,
         sent: totalSent(report),
+        testMode: true,
         report: report,
       })
     );

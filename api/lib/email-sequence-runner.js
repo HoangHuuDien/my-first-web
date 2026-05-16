@@ -120,10 +120,17 @@ async function patchOrder(id, fields) {
   }
 }
 
-/** Cung logic voi Vercel Cron: Email 2 >= 48h, Email 3 >= 24h sau Email 2, chi pending. */
-async function runEmailSequence() {
+/**
+ * @param {{ ignoreTiming?: boolean }} opts
+ * - Cron: Email 2 >= 48h, Email 3 >= 24h sau Email 2, chi pending.
+ * - Admin test: ignoreTiming=true — bo qua cho 48h/24h de thu gui ngay.
+ */
+async function runEmailSequence(opts) {
+  opts = opts || {};
+  var ignoreTiming = !!opts.ignoreTiming;
   var templates = loadSequenceTemplates();
   var report = {
+    testMode: ignoreTiming,
     email2: { candidates: 0, sent: 0, errors: [] },
     email3: { candidates: 0, sent: 0, errors: [] },
   };
@@ -134,9 +141,10 @@ async function runEmailSequence() {
     "orders?select=id,customer_email,customer_name,created_at" +
     "&status=eq.pending" +
     "&customer_email=not.is.null" +
-    "&sequence_email_2_sent_at=is.null" +
-    "&created_at=lte." +
-    encodeURIComponent(twoDaysAgoIso);
+    "&sequence_email_2_sent_at=is.null";
+  if (!ignoreTiming) {
+    q2 += "&created_at=lte." + encodeURIComponent(twoDaysAgoIso);
+  }
 
   var rows2 = await fetchJsonUrl(q2);
   if (!Array.isArray(rows2)) {
@@ -163,9 +171,10 @@ async function runEmailSequence() {
     "&status=eq.pending" +
     "&customer_email=not.is.null" +
     "&sequence_email_2_sent_at=not.is.null" +
-    "&sequence_email_3_sent_at=is.null" +
-    "&sequence_email_2_sent_at=lte." +
-    encodeURIComponent(oneDayAgoIso);
+    "&sequence_email_3_sent_at=is.null";
+  if (!ignoreTiming) {
+    q3 += "&sequence_email_2_sent_at=lte." + encodeURIComponent(oneDayAgoIso);
+  }
 
   var rows3 = await fetchJsonUrl(q3);
   if (!Array.isArray(rows3)) {
