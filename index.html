@@ -626,14 +626,16 @@
       }
 
       async function sendWelcomeEmail(toEmail, fullName) {
+        var name = (fullName && String(fullName).trim()) || "bạn";
         var welcomeText =
           "Chào " +
-          (fullName || "bạn") +
-          ",\n\n" +
-          "Chào mừng bạn đã tham gia danh sách chờ của Thuận Thiên (Xem Bát Tự). Mình đã nhận thông tin đăng ký của bạn.\n\n" +
-          "Bước tiếp theo: vui lòng hoàn tất thanh toán theo hướng dẫn trên website để team sắp xếp tư vấn cho bạn.\n\n" +
-          "Nếu không thấy thư trong hộp thư chính, bạn kiểm tra thêm mục Spam/Promotions nhé.\n\n" +
-          "Trân trọng,\nThuận Thiên";
+          name +
+          ", mình là Thuận Thiên bên Xem Bát Tự. Bạn vừa để lại tên và email cho mình, nên mình viết thư này như một lời chào thật sự chứ không phải một dải thông báo máy dựng sẵn.\n\n" +
+          "Mình nói thẳng cho bạn yên tâm luôn: mình không làm kiểu xem xong rồi gài thêm phong thủy hay bắt làm lễ, vì mình biết đúng cái cảm giác \"bị kéo thêm một mớ\" sau khi đã trả tiền — nó làm người ta mất niềm tin còn hơn là mất tiền. Phía mình có phí rõ, việc rõ, và khi vào buổi tư vấn thì mình giữ đúng ranh giới nghề: lá số là công cụ để nhìn xu hướng và chọn thời điểm, không phải tờ giấy để hứa chắc như đinh đóng cột những thứ mà đời thật vốn không cho phép hứa như vậy.\n\n" +
+          "Khi bạn hoàn tất bước thanh toán trên web, hệ thống sẽ giữ đúng mã chuyển khoản để khớp tự động, bạn khỏi phải chen hàng nhắn \"em chuyển rồi ạ\" kiểu xếp tay như thời xưa; còn nội dung cụ thể thì trang thanh toán sẽ hiện rõ cho bạn, bạn cứ làm đúng một lần cho trót. Nếu thư này lọt vào Spam hay Promotions thì bạn kéo về hộp chính giúp mình, chứ mình không muốn bạn tưởng mình \"im re\" trong khi thực ra mình đã gửi lời từ lúc nãy.\n\n" +
+          "Trân trọng nhân duyên,\n" +
+          "mình — Thuận Thiên (Xem Bát Tự)\n" +
+          "https://xembattu.vercel.app/";
 
         var url = new URL("/api/send-email", window.location.origin).href;
         var res = await fetch(url, {
@@ -641,7 +643,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: toEmail,
-            subject: "Thuận Thiên — Chào mừng bạn đã tham gia danh sách chờ",
+            subject: "Thuận Thiên nhận được bạn rồi — đọc thư này một phút thôi",
             text: welcomeText,
           }),
         });

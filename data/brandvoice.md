@@ -65,20 +65,34 @@ Trong mẫu có **hai thanh** song song; khi viết cần **chọn một thanh**
 ### 2.1. Độ dài & nhịp
 
 - **Câu vừa và ngắn xen kẽ:** một ý thường **1–2 câu**; khi cần lý luận dài thì chia thành **nhiều câu ngắn** hoặc **danh sách đánh số**.
-- **Đoạn ngắn:** mỗi đoạn thường **2–5 câu** rồi xuống dòng — dễ đọc trên điện thoại (đặc biệt rõ ở thanh kể chuyện).
+- **Đoạn ngắn:** mỗi đoạn thường **2–5 câu** rồi xuống dòng — dễ đọc trên điện thoại (đặc biệt rõ ở thanh kể chuyện). *Email / thư dài* có thể **dài hơn một chút** nếu các câu **nối nhau** thành mạch (đừng “mổ câu” — xem mục 2.2).
 
-### 2.2. Thẳng thắn vs uyển chuyển
+### 2.2. Nhịp “có hơi thở” — tránh giọng máy / văn chợ LLM *(bổ sung từ rà soát email & prompt)*
+
+Mẫu trong `voice-samples/` (ví dụ *Quy luật của tài lộc và hạnh phúc*) thường **nối nhiều câu trong một đoạn** trước khi xuống dòng: có **lý do**, có **nối** (“vì vậy”, “ngoài ra”, “cho nên”, “rốt cuộc”), đọc như người thật đang kể chứ không như slide tách ý.
+
+Khi viết **email, thư chào, chuỗi chăm sóc** (và bất kỳ chỗ nào cần “tính người”), thêm các nguyên tắc sau:
+
+1. **Đừng “mổ câu” quá mức:** tránh kiểu mỗi một vài chữ đã xuống dòng, mỗi ý một dòng riêng, đọc thành **giật cục** như chatbot. Ưu tiên **gom 3–6 câu** thành một đoạn có mạch, rồi mới xuống dòng khi **đổi chủ đề** hoặc cần nhịp nghỉ thật sự.
+2. **Hạn chế in đậm / gạch đầu dòng trang trí:** chỉ nhấn chỗ **thật sự** cần nhớ; đừng bôi đậm từng cụm tính từ — trông giống brochure máy dựng.
+3. **Liệt kê đánh số / bullet** chỉ khi **đúng việc** (bước làm, so sánh nhiều mặt). Nếu chuyển bullet sang **một đoạn văn** vẫn đọc trơn thì **bỏ bullet**.
+4. **Đọc thử bằng miệng** một lần: chỗ nào **ngắt hơi** tự nhiên thì mới xuống đoạn; chỗ nào đọc **đứt quãng** thì gộp câu hoặc thêm từ nối.
+5. **Thanh A không có nghĩa là “câu siêu ngắn liên tục”:** vẫn có thể vừa gần gũi vừa **chậm rãi** như nhắn tin dài cho một người, không phải spam dòng.
+
+> *Ghi chú repo:* trong workspace có thể chỉ có một phần file PDF mẫu; các file khác trong `voice-samples/` nếu có ở máy local vẫn nên đối chiếu khi chỉnh giọng sát mẫu in.
+
+### 2.3. Thẳng thắn vs uyển chuyển
 
 - **Thẳng** về **ranh giới** và **rủi ro** (ví dụ: cùng lá số mà đời khác nhau; tỉ lệ "đúng" thấp nếu chia đều cho nhiều đời).
 - **Uyển** ở chỗ **không công kích cá nhân**; thay bằng **phân tích cấu trúc** ("công cụ", "kịch bản", "may mắn").
 - **Tự hạ** có chừng mực: "những gì tôi biết vẫn còn rất hạn hẹp", "tôi chỉ là người bình thường" — **sau đó** thường nối bằng **giải pháp** hoặc **mời độc giả tự tìm hiểu thêm** (không dừng lại ở tự ti).
 
-### 2.3. Câu hỏi tu từ & câu hỏi dẫn
+### 2.4. Câu hỏi tu từ & câu hỏi dẫn
 
 - **Có, và khá thường xuyên** — dùng để **bẻ góc suy nghĩ sai** hoặc **mở cửa cho câu trả lời kép** (ví dụ: "Có nên tin … nữa không?" → trả lời dạng **"có, và không"** rồi giải thích từng nhánh).
 - Mẫu hay dùng: **"Vậy …?"**, **"… phải không?"**, **"Làm sao để …?"**, **"Nhưng mà làm gì?"**, **"Câu hỏi ở đây là: …"**.
 
-### 2.4. Phép liệt kê & luận
+### 2.5. Phép liệt kê & luận
 
 - **Đánh số (1. 2. 3.)** khi: so sánh nhiều mặt; tóm tắt xu hướng chung; "ba câu hỏi thương hiệu"; các bước suy luận.
 - **Song hành / đối lập:** "Không … là vì … / Có … là vì …"; "Tử vi, bát tự là xài chung … Còn Kinh Dịch là xài riêng."
@@ -142,6 +156,10 @@ Không kết bằng **slogan rỗng**; ưu tiên kết **có neo** (tóm lại +
 ### Điều 7 — **Số liệu & ẩn dụ** phục vụ **làm rõ**, không phục vụ **hoành tráng**
 
 Dùng con số và ví dụ (áo may đo, máy ảnh–vẽ tranh, …) để **giảm ảo tưởng** và **tăng độ phân giải** trong đầu độc giả.
+
+### Điều 8 — **Xuống dòng có chủ đích**, không “băm nhỏ vô lý” *(đi kèm mục 2.2)*
+
+Một bài vẫn có thể nhiều đoạn, nhưng **mỗi lần Enter** là vì **đổi nhịp hoặc đổi ý lớn**, không phải vì “mỗi câu một dòng” cho giống template AI. Email / thư tay ưu tiên **đoạn dài hơi thở** xen vài câu ngắn chốt ý — đúng tinh thần mẫu PDF trong `voice-samples/`.
 
 ---
 
