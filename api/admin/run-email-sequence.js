@@ -5,6 +5,7 @@
 const {
   runEmailSequence,
   totalSent,
+  formatUserHint,
 } = require("../lib/email-sequence-runner");
 
 function isAdminEmailTestEnabled() {
@@ -43,6 +44,7 @@ module.exports = async function handler(req, res) {
         ok: true,
         sent: totalSent(report),
         testMode: true,
+        hint: formatUserHint(report),
         report: report,
       })
     );

@@ -1,6 +1,5 @@
 /**
  * Logic chung: quet don pending, gui Email 2/3 theo email_sequence.md.
- * Dung cho Cron (/api/process-email-sequence) va nut test Admin.
  */
 const fs = require("fs");
 const path = require("path");
@@ -71,6 +70,11 @@ function personalize(body, customerName) {
   return body.split("[Tên]").join(name);
 }
 
+function normalizeEmail(row) {
+  var e = row && row.customer_email != null ? String(row.customer_email).trim() : "";
+  return e;
+}
+
 async function sendResendEmail(to, subject, text) {
   var apiKey = getResendApiKey();
   if (!apiKey) {
@@ -93,7 +97,7 @@ async function sendResendEmail(to, subject, text) {
 }
 
 function isoHoursAgo(h) {
-  return new Date(Date.now() - h * 60 * 60 * 1000).toISOString();
+  return new Date(Date.now() - h * 60 * 60 * 1000);
 }
 
 async function fetchJsonUrl(urlPath) {
@@ -120,10 +124,60 @@ async function patchOrder(id, fields) {
   }
 }
 
+async function loadPendingOrders() {
+  var fullSelect =
+    "id,customer_email,customer_name,created_at,sequence_email_2_sent_at,sequence_email_3_sent_at";
+  var basePath = "orders?select=" + encodeURIComponent(fullSelect) + "&status=eq.pending";
+  var rows = await fetchJsonUrl(basePath);
+  return { rows: Array.isArray(rows) ? rows : [], hasSequenceCols: true };
+}
+
+function orderNeedsEmail2(row, opts, hasSequenceCols) {
+  if (!normalizeEmail(row)) return false;
+  if (!hasSequenceCols) return true;
+  if (row.sequence_email_2_sent_at) return false;
+  if (opts.ignoreTiming) return true;
+  if (!row.created_at) return false;
+  return new Date(row.created_at) <= isoHoursAgo(48);
+}
+
+function orderNeedsEmail3(row, opts, hasSequenceCols) {
+  if (!normalizeEmail(row)) return false;
+  if (!hasSequenceCols) return false;
+  if (!row.sequence_email_2_sent_at || row.sequence_email_3_sent_at) return false;
+  if (opts.ignoreTiming) return true;
+  return new Date(row.sequence_email_2_sent_at) <= isoHoursAgo(24);
+}
+
+function buildDiagnostics(allPending, hasSequenceCols, migrationHint) {
+  var pending = allPending.length;
+  var withEmail = 0;
+  var missingEmail = 0;
+  var alreadyE2 = 0;
+  var alreadyE3 = 0;
+  for (var i = 0; i < allPending.length; i += 1) {
+    var r = allPending[i];
+    if (normalizeEmail(r)) {
+      withEmail += 1;
+    } else {
+      missingEmail += 1;
+    }
+    if (hasSequenceCols && r.sequence_email_2_sent_at) alreadyE2 += 1;
+    if (hasSequenceCols && r.sequence_email_3_sent_at) alreadyE3 += 1;
+  }
+  return {
+    pending: pending,
+    withEmail: withEmail,
+    missingEmail: missingEmail,
+    alreadyEmail2: alreadyE2,
+    alreadyEmail3: alreadyE3,
+    hasSequenceCols: hasSequenceCols,
+    migrationHint: migrationHint || null,
+  };
+}
+
 /**
  * @param {{ ignoreTiming?: boolean }} opts
- * - Cron: Email 2 >= 48h, Email 3 >= 24h sau Email 2, chi pending.
- * - Admin test: ignoreTiming=true — bo qua cho 48h/24h de thu gui ngay.
  */
 async function runEmailSequence(opts) {
   opts = opts || {};
@@ -133,59 +187,57 @@ async function runEmailSequence(opts) {
     testMode: ignoreTiming,
     email2: { candidates: 0, sent: 0, errors: [] },
     email3: { candidates: 0, sent: 0, errors: [] },
+    diagnostics: null,
   };
-  var twoDaysAgoIso = isoHoursAgo(48);
-  var oneDayAgoIso = isoHoursAgo(24);
 
-  var q2 =
-    "orders?select=id,customer_email,customer_name,created_at" +
-    "&status=eq.pending" +
-    "&customer_email=not.is.null" +
-    "&sequence_email_2_sent_at=is.null";
-  if (!ignoreTiming) {
-    q2 += "&created_at=lte." + encodeURIComponent(twoDaysAgoIso);
+  var loaded;
+  try {
+    loaded = await loadPendingOrders();
+  } catch (loadErr) {
+    var lm = (loadErr && loadErr.message) || String(loadErr);
+    if (/sequence_email/i.test(lm)) {
+      throw new Error(
+        "Thiếu cột sequence_email_2_sent_at / sequence_email_3_sent_at trên bảng orders. " +
+          "Vào Supabase → SQL Editor, chạy file migration 20260519120000_orders_sequence_email_timestamps.sql."
+      );
+    }
+    throw loadErr;
+  }
+  var allPending = loaded.rows;
+  report.diagnostics = buildDiagnostics(allPending, loaded.hasSequenceCols, null);
+
+  var queue2 = [];
+  var queue3 = [];
+  for (var i = 0; i < allPending.length; i += 1) {
+    var row = allPending[i];
+    if (orderNeedsEmail2(row, opts, loaded.hasSequenceCols)) {
+      queue2.push(row);
+    }
+    if (orderNeedsEmail3(row, opts, loaded.hasSequenceCols)) {
+      queue3.push(row);
+    }
   }
 
-  var rows2 = await fetchJsonUrl(q2);
-  if (!Array.isArray(rows2)) {
-    throw new Error("Supabase trả về không phải mảng (email2)");
-  }
-  report.email2.candidates = rows2.length;
+  report.email2.candidates = queue2.length;
+  report.email3.candidates = queue3.length;
 
-  for (var i = 0; i < rows2.length; i += 1) {
-    var o2 = rows2[i];
-    var email2 = o2.customer_email && String(o2.customer_email).trim();
-    if (!email2) continue;
+  for (var j = 0; j < queue2.length; j += 1) {
+    var o2 = queue2[j];
+    var email2 = normalizeEmail(o2);
     try {
       var text2 = personalize(templates.e2.body, o2.customer_name);
       await sendResendEmail(email2, templates.e2.subject, text2);
-      await patchOrder(o2.id, { sequence_email_2_sent_at: new Date().toISOString() });
+      var patch2 = { sequence_email_2_sent_at: new Date().toISOString() };
+      await patchOrder(o2.id, patch2);
       report.email2.sent += 1;
     } catch (sendErr) {
       report.email2.errors.push({ id: o2.id, error: sendErr.message || String(sendErr) });
     }
   }
 
-  var q3 =
-    "orders?select=id,customer_email,customer_name,sequence_email_2_sent_at" +
-    "&status=eq.pending" +
-    "&customer_email=not.is.null" +
-    "&sequence_email_2_sent_at=not.is.null" +
-    "&sequence_email_3_sent_at=is.null";
-  if (!ignoreTiming) {
-    q3 += "&sequence_email_2_sent_at=lte." + encodeURIComponent(oneDayAgoIso);
-  }
-
-  var rows3 = await fetchJsonUrl(q3);
-  if (!Array.isArray(rows3)) {
-    throw new Error("Supabase trả về không phải mảng (email3)");
-  }
-  report.email3.candidates = rows3.length;
-
-  for (var j = 0; j < rows3.length; j += 1) {
-    var o3 = rows3[j];
-    var email3 = o3.customer_email && String(o3.customer_email).trim();
-    if (!email3) continue;
+  for (var k = 0; k < queue3.length; k += 1) {
+    var o3 = queue3[k];
+    var email3 = normalizeEmail(o3);
     try {
       var text3 = personalize(templates.e3.body, o3.customer_name);
       await sendResendEmail(email3, templates.e3.subject, text3);
@@ -203,8 +255,27 @@ function totalSent(report) {
   return (report.email2.sent || 0) + (report.email3.sent || 0);
 }
 
+function formatUserHint(report) {
+  var d = report.diagnostics || {};
+  var parts = [];
+  if (d.migrationHint) parts.push(d.migrationHint);
+  if (d.missingEmail > 0) {
+    parts.push(
+      d.missingEmail +
+        " đơn pending thiếu email khách — mở tab Đơn hàng, điền Email và Lưu."
+    );
+  }
+  if (d.pending > 0 && d.withEmail > 0 && totalSent(report) === 0) {
+    if (d.alreadyEmail2 >= d.withEmail && report.email3.candidates === 0) {
+      parts.push("Các đơn có email đã gửi Email 2 trước đó (chờ Email 3 hoặc đã xong).");
+    }
+  }
+  return parts.join(" ");
+}
+
 module.exports = {
   runEmailSequence: runEmailSequence,
   totalSent: totalSent,
+  formatUserHint: formatUserHint,
   loadSequenceTemplates: loadSequenceTemplates,
 };

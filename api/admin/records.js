@@ -28,7 +28,7 @@ var VIEWS = {
     table: "orders",
     kind: "sales",
     listSelect:
-      "id,customer_name,customer_phone,amount,status,transaction_code,created_at",
+      "id,customer_name,customer_phone,customer_email,amount,status,transaction_code,created_at",
     searchFields: [
       "customer_name",
       "customer_phone",

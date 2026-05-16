@@ -46,6 +46,7 @@
         { key: "id", label: "ID" },
         { key: "transaction_code", label: "Mã CK" },
         { key: "customer_name", label: "Khách hàng" },
+        { key: "customer_email", label: "Email" },
         { key: "amount", label: "Số tiền" },
         { key: "status", label: "Trạng thái" },
         { key: "created_at", label: "Ngày mua" },
@@ -179,14 +180,29 @@
         var r = out.data.report || {};
         var e2 = (r.email2 && r.email2.sent) || 0;
         var e3 = (r.email3 && r.email3.sent) || 0;
+        var d = r.diagnostics || {};
         var msg = "Đã gửi thành công " + sent + " email!";
         if (sent > 0) {
           msg += " (Email 2: " + e2 + ", Email 3: " + e3 + ")";
-        } else {
-          msg +=
-            " Không có đơn pending nào còn thiếu Email 2/3 (hoặc thiếu email khách).";
         }
-        showToast(msg);
+        if (out.data.hint) {
+          msg += " " + out.data.hint;
+        } else if (sent === 0 && d.pending > 0 && d.missingEmail === d.pending) {
+          msg +=
+            " " +
+            d.pending +
+            " đơn pending nhưng không có email — mở đơn, điền Email, bấm Lưu.";
+        } else if (sent === 0) {
+          msg += " Không có đơn đủ điều kiện gửi Email 2/3.";
+        }
+        var errCount =
+          ((r.email2 && r.email2.errors && r.email2.errors.length) || 0) +
+          ((r.email3 && r.email3.errors && r.email3.errors.length) || 0);
+        if (errCount > 0) {
+          msg += " (" + errCount + " lỗi — xem console)";
+          console.warn("[Admin] email sequence errors", r);
+        }
+        showToast(msg, { duration: sent === 0 && out.data.hint ? 12000 : 6000 });
         if (state.currentView === "orders") {
           return fetchList().then(fetchStats);
         }
