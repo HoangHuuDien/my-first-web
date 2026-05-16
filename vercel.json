@@ -7,10 +7,6 @@
     "api/process-email-sequence.js": {
       "maxDuration": 60,
       "includeFiles": "data/email_sequence.md"
-    },
-    "api/admin/run-email-sequence.js": {
-      "maxDuration": 60,
-      "includeFiles": "data/email_sequence.md"
     }
   },
   "crons": [

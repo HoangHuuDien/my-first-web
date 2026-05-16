@@ -1,7 +1,6 @@
 (function () {
   var STATS_URL = "/api/admin/stats";
   var RECORDS_URL = "/api/admin/records";
-  var EMAIL_SEQUENCE_TEST_URL = "/api/admin/run-email-sequence";
   var LOADING_MS = 15000;
 
   var VIEWS = {
@@ -72,8 +71,6 @@
   var elFormOrder;
   var elMsg;
   var btnNew;
-  var elToast;
-  var toastHideTimer;
 
   function apiUrl(path) {
     return new URL(path, window.location.origin).href;
@@ -116,116 +113,6 @@
     if (!err) return "Lỗi không xác định";
     if (typeof err === "string") return err;
     return err.message || String(err);
-  }
-
-  /** REMOVE_EMAIL_TEST: xóa cùng nút trên HTML */
-  function isEmailTestUiEnabled() {
-    if (document.documentElement.classList.contains("admin-email-test-mode")) {
-      return true;
-    }
-    var h = location.hostname;
-    if (h === "localhost" || h === "127.0.0.1") return true;
-    try {
-      if (new URLSearchParams(location.search).get("emailTest") === "1") {
-        return true;
-      }
-    } catch (e) {}
-    return /[?&]emailTest=1(?:&|$)/.test(location.search);
-  }
-
-  function showToast(message, options) {
-    options = options || {};
-    if (!elToast) elToast = document.getElementById("admin-toast");
-    if (!elToast) return;
-    clearTimeout(toastHideTimer);
-    elToast.textContent = message;
-    elToast.className =
-      "admin-toast show" +
-      (options.error ? " err" : "") +
-      (options.loading ? " loading" : "");
-    if (!options.persist) {
-      toastHideTimer = setTimeout(function () {
-        elToast.classList.remove("show");
-      }, options.duration != null ? options.duration : 5000);
-    }
-  }
-
-  function runEmailSequenceTest() {
-    var btn = document.getElementById("btn-email-sequence-test");
-    if (!btn || btn.disabled) return;
-
-    btn.disabled = true;
-    showToast("Đang gửi email, vui lòng chờ...", { loading: true, persist: true });
-
-    fetch(apiUrl(EMAIL_SEQUENCE_TEST_URL), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        testMode: true,
-        resetSequence: true,
-        sendBothEmails: true,
-      }),
-    })
-      .then(function (res) {
-        return res.json().then(function (data) {
-          return { res: res, data: data };
-        });
-      })
-      .then(function (out) {
-        if (!out.res.ok || !out.data || !out.data.ok) {
-          throw new Error(
-            (out.data && out.data.error) || "HTTP " + out.res.status
-          );
-        }
-        var sent =
-          typeof out.data.sent === "number"
-            ? out.data.sent
-            : 0;
-        var r = out.data.report || {};
-        var e2 = (r.email2 && r.email2.sent) || 0;
-        var e3 = (r.email3 && r.email3.sent) || 0;
-        var d = r.diagnostics || {};
-        var msg = "Đã gửi thành công " + sent + " email!";
-        if (sent > 0) {
-          msg += " (Email 2: " + e2 + ", Email 3: " + e3 + ")";
-        }
-        if (out.data.report && out.data.report.samples) {
-          console.log("[Admin] email samples", out.data.report.samples);
-        }
-        if (out.data.hint) {
-          msg += " " + out.data.hint;
-        } else if (sent === 0 && d.pending > 0 && d.missingEmail === d.pending) {
-          msg +=
-            " " +
-            d.pending +
-            " đơn pending nhưng không có email — mở đơn, điền Email, bấm Lưu.";
-        } else if (sent === 0) {
-          msg += " Không có đơn đủ điều kiện gửi Email 2/3.";
-        }
-        var errCount =
-          ((r.email2 && r.email2.errors && r.email2.errors.length) || 0) +
-          ((r.email3 && r.email3.errors && r.email3.errors.length) || 0);
-        if (errCount > 0) {
-          msg += " (" + errCount + " lỗi — xem console)";
-          console.warn("[Admin] email sequence errors", r);
-        }
-        showToast(msg, { duration: sent === 0 && out.data.hint ? 12000 : 6000 });
-        if (state.currentView === "orders") {
-          return fetchList().then(fetchStats);
-        }
-      })
-      .catch(function (err) {
-        showToast(formatError(err), { error: true });
-      })
-      .finally(function () {
-        btn.disabled = false;
-      });
-  }
-
-  function bindEmailTestButton() {
-    var btn = document.getElementById("btn-email-sequence-test");
-    if (!btn || !isEmailTestUiEnabled()) return;
-    btn.addEventListener("click", runEmailSequenceTest);
   }
 
   function showBanner(text, isError) {
@@ -819,12 +706,9 @@
       return;
     }
 
-    elToast = document.getElementById("admin-toast");
-
     console.log("[Admin] Khởi động — API:", apiUrl(STATS_URL));
     bindListRowEvents();
     bindEvents();
-    bindEmailTestButton();
     setView("products");
   }
 

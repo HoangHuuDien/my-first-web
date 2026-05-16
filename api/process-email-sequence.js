@@ -1,5 +1,5 @@
 /**
- * Cron: gui Email 2/3 (cung logic voi nut test Admin).
+ * Cron: gui Email 2/3 theo lich 48h / 24h.
  * Bao mat: Authorization: Bearer <CRON_SECRET>
  */
 const {

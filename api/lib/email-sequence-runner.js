@@ -1,5 +1,5 @@
 /**
- * Logic chung: quet don pending, gui Email 2/3 theo email_sequence.md.
+ * Cron: quet don pending, gui Email 2/3 theo email_sequence.md.
  */
 const fs = require("fs");
 const path = require("path");
@@ -133,139 +133,63 @@ async function loadPendingOrders() {
     "id,customer_email,customer_name,created_at,sequence_email_2_sent_at,sequence_email_3_sent_at";
   var basePath = "orders?select=" + encodeURIComponent(fullSelect) + "&status=eq.pending";
   var rows = await fetchJsonUrl(basePath);
-  return { rows: Array.isArray(rows) ? rows : [], hasSequenceCols: true };
+  return Array.isArray(rows) ? rows : [];
 }
 
-async function resetSequenceForPending(rows) {
-  for (var i = 0; i < rows.length; i += 1) {
-    var row = rows[i];
-    if (!getOrderEmail(row)) continue;
-    await patchOrder(row.id, {
-      sequence_email_2_sent_at: null,
-      sequence_email_3_sent_at: null,
-    });
-  }
-}
-
-function orderNeedsEmail2(row, opts, hasSequenceCols) {
+function orderNeedsEmail2(row) {
   if (!getOrderEmail(row)) return false;
-  if (!hasSequenceCols) return true;
   if (row.sequence_email_2_sent_at) return false;
-  if (opts.ignoreTiming) return true;
   if (!row.created_at) return false;
   return new Date(row.created_at) <= isoHoursAgo(48);
 }
 
-function orderNeedsEmail3(row, opts, hasSequenceCols) {
+function orderNeedsEmail3(row) {
   if (!getOrderEmail(row)) return false;
-  if (!hasSequenceCols) return false;
   if (!row.sequence_email_2_sent_at || row.sequence_email_3_sent_at) return false;
-  if (opts.ignoreTiming) return true;
   return new Date(row.sequence_email_2_sent_at) <= isoHoursAgo(24);
 }
 
-function buildDiagnostics(allPending, hasSequenceCols, migrationHint) {
-  var pending = allPending.length;
-  var withEmail = 0;
-  var missingEmail = 0;
-  var alreadyE2 = 0;
-  var alreadyE3 = 0;
-  for (var i = 0; i < allPending.length; i += 1) {
-    var r = allPending[i];
-    if (getOrderEmail(r)) {
-      withEmail += 1;
-    } else {
-      missingEmail += 1;
-    }
-    if (hasSequenceCols && r.sequence_email_2_sent_at) alreadyE2 += 1;
-    if (hasSequenceCols && r.sequence_email_3_sent_at) alreadyE3 += 1;
-  }
-  return {
-    pending: pending,
-    withEmail: withEmail,
-    missingEmail: missingEmail,
-    alreadyEmail2: alreadyE2,
-    alreadyEmail3: alreadyE3,
-    hasSequenceCols: hasSequenceCols,
-    migrationHint: migrationHint || null,
-  };
-}
-
-/**
- * @param {{ ignoreTiming?: boolean, resetSequence?: boolean, sendBothEmails?: boolean, dryRun?: boolean }} opts
- */
-async function runEmailSequence(opts) {
-  opts = opts || {};
-  var ignoreTiming = !!opts.ignoreTiming;
-  var sendBothEmails = opts.sendBothEmails !== false;
-  var dryRun = !!opts.dryRun;
+/** Email 2 >= 48h tu created_at; Email 3 >= 24h sau Email 2; chi pending. */
+async function runEmailSequence() {
   var templates = loadSequenceTemplates();
   var report = {
-    testMode: ignoreTiming,
-    resetSequence: !!opts.resetSequence,
     email2: { candidates: 0, sent: 0, errors: [] },
     email3: { candidates: 0, sent: 0, errors: [] },
-    diagnostics: null,
-    samples: [],
   };
 
-  var loaded;
+  var allPending;
   try {
-    loaded = await loadPendingOrders();
+    allPending = await loadPendingOrders();
   } catch (loadErr) {
     var lm = (loadErr && loadErr.message) || String(loadErr);
     if (/sequence_email/i.test(lm)) {
       throw new Error(
         "Thiếu cột sequence_email_2_sent_at / sequence_email_3_sent_at trên bảng orders. " +
-          "Vào Supabase → SQL Editor, chạy file migration 20260519120000_orders_sequence_email_timestamps.sql."
+          "Chạy migration 20260519120000_orders_sequence_email_timestamps.sql trên Supabase."
       );
     }
     throw loadErr;
   }
 
-  if (opts.resetSequence && ignoreTiming && !dryRun) {
-    await resetSequenceForPending(loaded.rows);
-    loaded = await loadPendingOrders();
-  }
-
-  var allPending = loaded.rows;
-  report.diagnostics = buildDiagnostics(allPending, loaded.hasSequenceCols, null);
-  report.samples = allPending.slice(0, 8).map(function (r) {
-    return {
-      id: r.id,
-      email: getOrderEmail(r) || null,
-      e2: r.sequence_email_2_sent_at || null,
-      e3: r.sequence_email_3_sent_at || null,
-    };
-  });
-
   var queue2 = [];
   var queue3 = [];
   for (var i = 0; i < allPending.length; i += 1) {
     var row = allPending[i];
-    if (orderNeedsEmail2(row, opts, loaded.hasSequenceCols)) {
-      queue2.push(row);
-    }
-    if (!ignoreTiming || !sendBothEmails) {
-      if (orderNeedsEmail3(row, opts, loaded.hasSequenceCols)) {
-        queue3.push(row);
-      }
-    }
+    if (orderNeedsEmail2(row)) queue2.push(row);
+    if (orderNeedsEmail3(row)) queue3.push(row);
   }
 
   report.email2.candidates = queue2.length;
   report.email3.candidates = queue3.length;
 
-  if (dryRun) {
-    return report;
-  }
-
   for (var j = 0; j < queue2.length; j += 1) {
     var o2 = queue2[j];
-    var email2 = getOrderEmail(o2);
     try {
-      var text2 = personalize(templates.e2.body, o2.customer_name);
-      await sendResendEmail(email2, templates.e2.subject, text2);
+      await sendResendEmail(
+        getOrderEmail(o2),
+        templates.e2.subject,
+        personalize(templates.e2.body, o2.customer_name)
+      );
       await patchOrder(o2.id, { sequence_email_2_sent_at: new Date().toISOString() });
       report.email2.sent += 1;
     } catch (sendErr) {
@@ -273,24 +197,14 @@ async function runEmailSequence(opts) {
     }
   }
 
-  if (ignoreTiming && sendBothEmails) {
-    loaded = await loadPendingOrders();
-    queue3 = [];
-    for (var q = 0; q < loaded.rows.length; q += 1) {
-      var r3 = loaded.rows[q];
-      if (orderNeedsEmail3(r3, opts, loaded.hasSequenceCols)) {
-        queue3.push(r3);
-      }
-    }
-    report.email3.candidates = queue3.length;
-  }
-
   for (var k = 0; k < queue3.length; k += 1) {
     var o3 = queue3[k];
-    var email3 = getOrderEmail(o3);
     try {
-      var text3 = personalize(templates.e3.body, o3.customer_name);
-      await sendResendEmail(email3, templates.e3.subject, text3);
+      await sendResendEmail(
+        getOrderEmail(o3),
+        templates.e3.subject,
+        personalize(templates.e3.body, o3.customer_name)
+      );
       await patchOrder(o3.id, { sequence_email_3_sent_at: new Date().toISOString() });
       report.email3.sent += 1;
     } catch (sendErr3) {
@@ -305,27 +219,8 @@ function totalSent(report) {
   return (report.email2.sent || 0) + (report.email3.sent || 0);
 }
 
-function formatUserHint(report) {
-  var d = report.diagnostics || {};
-  var parts = [];
-  if (d.migrationHint) parts.push(d.migrationHint);
-  if (d.missingEmail > 0) {
-    parts.push(
-      d.missingEmail +
-        " đơn pending thiếu email khách — mở tab Đơn hàng, điền Email và Lưu."
-    );
-  }
-  if (d.pending > 0 && d.withEmail > 0 && totalSent(report) === 0) {
-    if (d.alreadyEmail2 >= d.withEmail && report.email3.candidates === 0) {
-      parts.push("Các đơn có email đã gửi Email 2 trước đó (chờ Email 3 hoặc đã xong).");
-    }
-  }
-  return parts.join(" ");
-}
-
 module.exports = {
   runEmailSequence: runEmailSequence,
   totalSent: totalSent,
-  formatUserHint: formatUserHint,
   loadSequenceTemplates: loadSequenceTemplates,
 };

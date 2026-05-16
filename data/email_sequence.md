@@ -69,8 +69,6 @@ https://xembattu.vercel.app/
 
 **Vercel:** thêm biến môi trường `CRON_SECRET`; Cron gọi `GET /api/process-email-sequence` **một lần mỗi ngày** (`0 7 * * *` trong `vercel.json` — gói Hobby không cho cron dày hơn). Request hợp lệ phải có header `Authorization: Bearer <CRON_SECRET>`. Gói Pro có thể rút cron xuống vài giờ để sát mốc 48h / 24h hơn.
 
-**Test trên Admin (không cần curl):** mở `/admin` trên `localhost` hoặc `/admin?emailTest=1`, bấm **Gửi Email Test Ngay** (góc header). Server cần `ENABLE_ADMIN_EMAIL_TEST=true` (hoặc chạy local). Xóa nút: tìm comment `REMOVE_EMAIL_TEST` trong `admin/index.html`, `admin.css`, `admin.js`.
-
 **Supabase:** migration `20260519120000_orders_sequence_email_timestamps.sql` thêm cột `sequence_email_2_sent_at`, `sequence_email_3_sent_at` (và cần `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` trên Vercel để API đọc/ghi đơn).
 
 Nếu đơn đã `paid` / `success` / `cancelled` trước khi tới lượt — cron **không** gửi email 2 hoặc 3 (chỉ lọc `status=pending`).
