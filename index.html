@@ -429,20 +429,18 @@
       </div>
     </div>
   </section>
+  <script src="/js/client-env.js"></script>
+  <script src="/js/supabase-page.js"></script>
   <script src="/js/payment-config.js"></script>
   <script>
     (function () {
-      var SUPABASE_URL = "https://wbpzrebgdirdmtfiqrls.supabase.co/";
-      var SUPABASE_KEY = "sb_publishable_FnplzjXonbDizjgOewGAGw_TKvPcZg9";
-      if (!window.supabase || !window.supabase.createClient) {
-        console.error("Supabase SDK failed to load.");
+      var supabaseClient;
+      try {
+        supabaseClient = window.TT_getSupabaseClient();
+      } catch (sdkErr) {
+        console.error(sdkErr);
         return;
       }
-
-      var supabaseClient = window.supabase.createClient(SUPABASE_URL.trim(), SUPABASE_KEY.trim());
-
-      var TELEGRAM_BOT_TOKEN = "8643788528:AAHiZklRmipuN9nBbWF9J-__QXHz4iMBEwc";
-      var TELEGRAM_CHAT_ID = "8747340503";
 
       function normalizeText(value) {
         return (value || "")
@@ -566,62 +564,24 @@
         throw lastError || new Error("Không tạo được mã giao dịch duy nhất.");
       }
 
-      function buildTelegramOrderText(orderId, fullName, email, zalo, transactionCode) {
-        return (
-          "📩 Đơn mới từ form (chờ thanh toán)\n\n" +
-          "Mã đơn: #" + orderId + "\n" +
-          "Mã CK: " + (transactionCode || "-") + "\n" +
-          "Tên khách: " + fullName + "\n" +
-          "Email: " + email + "\n" +
-          "SĐT/Zalo: " + zalo + "\n" +
-          "Trạng thái: pending"
-        );
-      }
-
-      function telegramSendMessageUrl(text) {
-        var params = new URLSearchParams({
-          chat_id: String(TELEGRAM_CHAT_ID),
-          text: text
-        });
-        return (
-          "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage?" + params.toString()
-        );
-      }
-
-      function sendTelegramViaImageGet(url) {
-        return new Promise(function (resolve) {
-          var img = new Image();
-          var done = function () {
-            resolve();
-          };
-          img.onload = done;
-          img.onerror = done;
-          img.src = url;
-        });
-      }
-
       async function notifyTelegramOrder(orderId, fullName, email, zalo, transactionCode) {
-        var text = buildTelegramOrderText(orderId, fullName, email, zalo, transactionCode);
-        var getUrl = telegramSendMessageUrl(text);
-        var postUrl = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage";
-
         try {
-          var res = await fetch(postUrl, {
+          var res = await fetch("/api/notify-telegram", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              chat_id: TELEGRAM_CHAT_ID,
-              text: text
-            })
+              orderId: orderId,
+              fullName: fullName,
+              email: email,
+              zalo: zalo,
+              transactionCode: transactionCode,
+            }),
           });
           if (!res.ok) {
-            var errBody = await res.text();
-            console.error("Telegram API HTTP error:", res.status, errBody);
-            await sendTelegramViaImageGet(getUrl);
+            console.warn("[Form] notify-telegram:", res.status, await res.text());
           }
         } catch (err) {
-          console.warn("Telegram fetch failed; falling back to GET request:", err);
-          await sendTelegramViaImageGet(getUrl);
+          console.warn("[Form] notify-telegram failed:", err);
         }
       }
 
@@ -635,7 +595,7 @@
           "Khi bạn hoàn tất bước thanh toán trên web, hệ thống sẽ giữ đúng mã chuyển khoản để khớp tự động, bạn khỏi phải chen hàng nhắn \"em chuyển rồi ạ\" kiểu xếp tay như thời xưa; còn nội dung cụ thể thì trang thanh toán sẽ hiện rõ cho bạn, bạn cứ làm đúng một lần cho trót. Nếu thư này lọt vào Spam hay Promotions thì bạn kéo về hộp chính giúp mình, chứ mình không muốn bạn tưởng mình \"im re\" trong khi thực ra mình đã gửi lời từ lúc nãy.\n\n" +
           "Trân trọng nhân duyên,\n" +
           "mình — Thuận Thiên (Xem Bát Tự)\n" +
-          "https://xembattu.vercel.app/";
+          ((window.__TT_ENV__ && window.__TT_ENV__.siteUrl) || window.location.origin) + "/";
 
         var url = new URL("/api/send-email", window.location.origin).href;
         var res = await fetch(url, {

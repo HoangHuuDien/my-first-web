@@ -1,24 +1,7 @@
-const fs = require("fs");
-const path = require("path");
 const { Resend } = require("resend");
 
 function getResendApiKey() {
-  var fromEnv = process.env.RESEND_API_KEY && String(process.env.RESEND_API_KEY).trim();
-  if (fromEnv) return fromEnv;
-  var candidates = [
-    path.join(process.cwd(), "resend_config.txt"),
-    path.join(__dirname, "..", "..", "resend_config.txt"),
-  ];
-  for (var i = 0; i < candidates.length; i += 1) {
-    try {
-      if (fs.existsSync(candidates[i])) {
-        var line = fs.readFileSync(candidates[i], { encoding: "utf8" }).split(/\r?\n/)[0];
-        var key = (line || "").trim();
-        if (key) return key;
-      }
-    } catch (e) {}
-  }
-  return "";
+  return (process.env.RESEND_API_KEY && String(process.env.RESEND_API_KEY).trim()) || "";
 }
 
 function getResendFrom() {
@@ -31,7 +14,7 @@ function getResendFrom() {
 async function sendResendEmail(to, subject, text, html) {
   var apiKey = getResendApiKey();
   if (!apiKey) {
-    throw new Error("Thiếu RESEND_API_KEY (hoặc resend_config.txt)");
+    throw new Error("Thiếu RESEND_API_KEY trong .env");
   }
   var resend = new Resend(apiKey);
   var payload = {

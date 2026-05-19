@@ -7,8 +7,9 @@
 (function () {
   "use strict";
 
-  /** Webhook Make.com — nhận lead + toàn bộ hội thoại (JSON). */
-  var MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/20n86h5h51cd37v91clfwjeukns6v7zj";
+  /** Webhook Make.com — từ .env qua /js/client-env.js */
+  var MAKE_WEBHOOK_URL =
+    (window.__TT_ENV__ && window.__TT_ENV__.makeWebhookUrl) || "";
 
   var GREETING =
     "Chào bạn, mình là trợ lý Thuận Thiên, bạn quan tâm điều gì, hãy đặt câu hỏi cho mình nhé.";

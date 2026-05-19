@@ -2,9 +2,13 @@
   "name": "my-first-web",
   "private": true,
   "version": "1.0.0",
-  "description": "Landing Thuận Thiên + chat OpenRouter trên Vercel",
+  "description": "Landing Thuận Thiên — static + Node API (Vercel hoặc VPS)",
   "engines": {
     "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
     "resend": "^4.0.0"

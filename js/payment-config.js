@@ -1,13 +1,18 @@
 /** Cấu hình thanh toán SePay — dùng chung payment + thank-you */
-window.TT_PAYMENT_CONFIG = {
-  account: "0977611153",
-  bank: "MB",
-  amount: 500000,
-  /** @deprecated — mỗi đơn dùng transaction_code riêng (QR des) */
-  transferDesc: "TVBT500",
-  giftDownloadUrl:
-    "https://drive.google.com/file/d/1UUvksD7X6jgt14Y1VXBgui2ebg4jBfuB/view?usp=sharing",
-};
+(function () {
+  var envPay =
+    window.__TT_ENV__ && window.__TT_ENV__.payment ? window.__TT_ENV__.payment : {};
+  window.TT_PAYMENT_CONFIG = {
+    account: envPay.account || "0977611153",
+    bank: envPay.bank || "MB",
+    amount: Number(envPay.amount) || 500000,
+    /** @deprecated — mỗi đơn dùng transaction_code riêng (QR des) */
+    transferDesc: "TVBT500",
+    giftDownloadUrl:
+      envPay.giftDownloadUrl ||
+      "https://drive.google.com/file/d/1UUvksD7X6jgt14Y1VXBgui2ebg4jBfuB/view?usp=sharing",
+  };
+})();
 
 /**
  * Mã duy nhất: tiền tố TVBT_ + 5 ký tự (A–Z, 2–9, tránh 0/O/I/1).

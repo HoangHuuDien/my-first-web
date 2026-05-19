@@ -1,39 +1,13 @@
 /**
- * Vercel Serverless — gửi email qua Resend.
- *
- * API Key (theo thứ tự ưu tiên):
- * 1) process.env.RESEND_API_KEY  — khuyên dùng trên Vercel (Production)
- * 2) File resend_config.txt ở thư mục gốc project (một dòng, chỉ chứa key) — tiện cho local
- *
- * Biến tùy chọn: RESEND_FROM — ví dụ "Thuận Thiên <hello@yourdomain.com>"
- * (domain phải đã verify trên Resend). Mặc định dùng onboarding@resend.dev chỉ phù hợp test.
+ * POST /api/send-email — Resend (RESEND_API_KEY trong .env).
  */
-const fs = require("fs");
-const path = require("path");
-const { Resend } = require("resend");
-
-function getResendApiKey() {
-  var fromEnv = process.env.RESEND_API_KEY && String(process.env.RESEND_API_KEY).trim();
-  if (fromEnv) return fromEnv;
-
-  var candidates = [
-    path.join(process.cwd(), "resend_config.txt"),
-    path.join(__dirname, "..", "resend_config.txt"),
-  ];
-  for (var i = 0; i < candidates.length; i += 1) {
-    try {
-      if (fs.existsSync(candidates[i])) {
-        var line = fs.readFileSync(candidates[i], { encoding: "utf8" }).split(/\r?\n/)[0];
-        var key = (line || "").trim();
-        if (key) return key;
-      }
-    } catch (e) {}
-  }
-  return "";
-}
+const { sendResendEmail } = require("./lib/resend-client");
 
 function readJsonBody(req) {
   return new Promise(function (resolve, reject) {
+    if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
+      return resolve(req.body);
+    }
     var chunks = [];
     req.on("data", function (c) {
       chunks.push(c);
@@ -86,47 +60,14 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  var apiKey = getResendApiKey();
-  if (!apiKey) {
-    res.statusCode = 503;
-    res.end(
-      JSON.stringify({
-        ok: false,
-        error:
-          "Missing Resend API key. Set RESEND_API_KEY on Vercel or add resend_config.txt locally.",
-      })
-    );
-    return;
-  }
-
-  var from =
-    (process.env.RESEND_FROM && String(process.env.RESEND_FROM).trim()) ||
-    "Thuận Thiên <onboarding@resend.dev>";
-
   try {
-    var resend = new Resend(apiKey);
-    var payload = {
-      from: from,
-      to: [to],
-      subject: subject,
-    };
-    if (text) payload.text = text;
-    if (html) payload.html = html;
-
-    var result = await resend.emails.send(payload);
-
-    if (result.error) {
-      console.error("[api/send-email] Resend error:", result.error);
-      res.statusCode = 502;
-      res.end(JSON.stringify({ ok: false, error: result.error.message || "Resend send failed" }));
-      return;
-    }
-
+    var id = await sendResendEmail(to, subject, text, html);
     res.statusCode = 200;
-    res.end(JSON.stringify({ ok: true, id: result.data && result.data.id }));
+    res.end(JSON.stringify({ ok: true, id: id }));
   } catch (err) {
     console.error("[api/send-email]", err);
-    res.statusCode = 500;
+    var status = err.message && err.message.indexOf("Thiếu RESEND") === 0 ? 503 : 502;
+    res.statusCode = status;
     res.end(JSON.stringify({ ok: false, error: err.message || String(err) }));
   }
 };

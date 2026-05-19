@@ -60,12 +60,12 @@
     </div>
   </main>
 
+  <script src="/js/client-env.js"></script>
+  <script src="/js/supabase-page.js"></script>
   <script src="/js/payment-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (function () {
-      var SUPABASE_URL = "https://wbpzrebgdirdmtfiqrls.supabase.co/";
-      var SUPABASE_KEY = "sb_publishable_FnplzjXonbDizjgOewGAGw_TKvPcZg9";
 
       var cfg = window.TT_PAYMENT_CONFIG || {};
       var lead = window.TT_getLeadSession();
@@ -130,11 +130,12 @@
         qrImg.src = window.TT_buildSepayQrUrl(qrCfg);
         qrImg.alt = "QR thanh toán — " + transactionCode;
 
-        if (!window.supabase || !window.supabase.createClient) return;
-        var client = window.supabase.createClient(
-          SUPABASE_URL.trim(),
-          SUPABASE_KEY.trim()
-        );
+        var client;
+        try {
+          client = window.TT_getSupabaseClient();
+        } catch (e) {
+          return;
+        }
         startPollingOrderStatus(client, orderId);
       }
 
@@ -143,19 +144,17 @@
         return;
       }
 
-      if (!window.supabase || !window.supabase.createClient) {
+      var supabaseClient;
+      try {
+        supabaseClient = window.TT_getSupabaseClient();
+      } catch (sdkErr) {
         var gt = document.getElementById("gate-denied-title");
         var gb = document.getElementById("gate-denied-body");
         if (gt) gt.textContent = "Không tải được thư viện";
-        if (gb) gb.textContent = "Không tải được Supabase SDK. Thử tải lại trang.";
+        if (gb) gb.textContent = sdkErr.message || "Không tải được Supabase. Thử tải lại trang.";
         denied.classList.remove("hidden");
         return;
       }
-
-      var supabaseClient = window.supabase.createClient(
-        SUPABASE_URL.trim(),
-        SUPABASE_KEY.trim()
-      );
 
       if (lead.transactionCode) {
         showPaymentUI(lead.transactionCode, lead.orderId);

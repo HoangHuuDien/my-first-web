@@ -52,12 +52,12 @@
     <p id="gate-msg" class="mt-6 hidden max-w-md text-sm text-amber-800"></p>
   </main>
 
+  <script src="/js/client-env.js"></script>
+  <script src="/js/supabase-page.js"></script>
   <script src="/js/payment-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (function () {
-      var SUPABASE_URL = "https://wbpzrebgdirdmtfiqrls.supabase.co/";
-      var SUPABASE_KEY = "sb_publishable_FnplzjXonbDizjgOewGAGw_TKvPcZg9";
 
       var lead = window.TT_getLeadSession();
       var verifyEl = document.getElementById("verify-msg");
@@ -132,15 +132,13 @@
         return;
       }
 
-      if (!window.supabase || !window.supabase.createClient) {
-        if (verifyEl) verifyEl.textContent = "Không tải được Supabase SDK.";
+      var client;
+      try {
+        client = window.TT_getSupabaseClient();
+      } catch (sdkErr) {
+        if (verifyEl) verifyEl.textContent = sdkErr.message || "Không tải được Supabase.";
         return;
       }
-
-      var client = window.supabase.createClient(
-        SUPABASE_URL.trim(),
-        SUPABASE_KEY.trim()
-      );
 
       function checkOnce() {
         return client
