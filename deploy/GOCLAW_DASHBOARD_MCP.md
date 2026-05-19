@@ -40,6 +40,19 @@ Bật quyền MCP server này cho agent Telegram của bạn.
 
 **Không** dùng URL `http://127.0.0.1:3001` — MCP này không có HTTP.
 
+### Lỗi `transport closed` khi Kiểm tra kết nối
+
+goClaw chạy MCP bằng user **`goclaw` (uid 1000)**, không phải root. File `.env` mặc định `chmod 600` → **EACCES** → process chết → `transport closed`.
+
+Trên VPS (một lần):
+
+```bash
+chgrp 1000 /opt/my-website/.env && chmod 640 /opt/my-website/.env
+chgrp 1000 /opt/my-website/index.html && chmod 664 /opt/my-website/index.html
+```
+
+Mount Docker phải **`rw`** (không `:ro`) nếu dùng tool `edit_landing_page` với `confirm=true`.
+
 ### Lỗi `exec: "node"` khi Kiểm tra kết nối
 
 goClaw chạy **Docker** — container không có `node` và chưa mount `/opt/my-website`.  

@@ -3,5 +3,5 @@ services:
   goclaw:
     entrypoint: ["/bin/sh", "/mnt/goclaw-scripts/entrypoint-with-node.sh"]
     volumes:
-      - /opt/my-website:/opt/my-website:ro
+      - /opt/my-website:/opt/my-website:rw
       - /opt/goclaw/scripts/entrypoint-with-node.sh:/mnt/goclaw-scripts/entrypoint-with-node.sh:ro
