@@ -6,8 +6,19 @@ Sau khi chạy `bash deploy/mcp-install.sh` trên VPS.
 |--------|---------|
 | **Name / ID** | `thuan_thien_web` |
 | **Transport** | `stdio` |
-| **Command** | `node` |
-| **Args** (mỗi dòng một arg hoặc JSON array) | `/opt/my-website/mcp-server/index.js` |
+| **Command** | `/bin/sh` |
+| **Args** | `/opt/my-website/mcp-server/run-mcp.sh` |
+
+Sau khi `git pull`, trên VPS:
+
+```bash
+cd /opt/my-website && git pull && chmod +x mcp-server/run-mcp.sh mcp-server/check-startup.sh
+bash mcp-server/check-startup.sh
+```
+
+Nếu `check-startup.sh` báo `fatal:` → gửi dòng lỗi đó. Nếu `SDK_OK` và không có `fatal` → thử **Kiểm tra kết nối** lại.
+
+**Thử thêm nếu vẫn đỏ:** Lệnh `node`, Tham số `/opt/my-website/mcp-server/index.js` (giữ nguyên 3 env).
 | **Tool prefix** | `tt_` |
 | **Timeout** | `60` (giây) |
 
@@ -28,6 +39,11 @@ Sau khi chạy `bash deploy/mcp-install.sh` trên VPS.
 Bật quyền MCP server này cho agent Telegram của bạn.
 
 **Không** dùng URL `http://127.0.0.1:3001` — MCP này không có HTTP.
+
+### Lỗi `exec: "node"` khi Kiểm tra kết nối
+
+goClaw chạy **Docker** — container không có `node` và chưa mount `/opt/my-website`.  
+→ Làm theo **`deploy/GOCLAW_MCP_DOCKER_FIX.md`** trên VPS, rồi Kiểm tra kết nối lại.
 
 ## Test nhanh trên VPS
 

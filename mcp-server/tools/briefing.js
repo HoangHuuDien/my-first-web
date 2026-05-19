@@ -3,7 +3,14 @@ import { countRows, fetchJson } from "../lib/supabase-bridge.js";
 import { vnDayBounds, hoursAgoIso } from "../lib/timezone.js";
 
 const require = createRequire(import.meta.url);
-const emailRunner = require("../../api/lib/email-sequence-runner.js");
+let _emailRunner;
+
+function getEmailRunner() {
+  if (!_emailRunner) {
+    _emailRunner = require("../../api/lib/email-sequence-runner.js");
+  }
+  return _emailRunner;
+}
 
 const ORDER_LIST_SELECT =
   "id,customer_name,customer_email,customer_phone,transaction_code,created_at,status";
@@ -76,6 +83,7 @@ export async function getDailyOpsBriefing(args) {
     let email2Candidates = 0;
     let email3Candidates = 0;
     try {
+      const emailRunner = getEmailRunner();
       const pending = await emailRunner.loadPendingOrders();
       for (const row of pending) {
         if (emailRunner.orderNeedsEmail2(row)) email2Candidates += 1;

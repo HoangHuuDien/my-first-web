@@ -1,0 +1,7 @@
+# Overlay cho /opt/goclaw — mount website + node cho MCP stdio
+services:
+  goclaw:
+    entrypoint: ["/bin/sh", "/mnt/goclaw-scripts/entrypoint-with-node.sh"]
+    volumes:
+      - /opt/my-website:/opt/my-website:ro
+      - /opt/goclaw/scripts/entrypoint-with-node.sh:/mnt/goclaw-scripts/entrypoint-with-node.sh:ro

@@ -31,9 +31,15 @@ def main():
     code = stdout.channel.recv_exit_status()
     client.close()
     if out:
-        print(out, end="" if out.endswith("\n") else "\n")
+        sys.stdout.buffer.write(
+            out.encode("utf-8", errors="replace")
+            + (b"" if out.endswith("\n") else b"\n")
+        )
     if err:
-        print(err, end="" if err.endswith("\n") else "\n", file=sys.stderr)
+        sys.stderr.buffer.write(
+            err.encode("utf-8", errors="replace")
+            + (b"" if err.endswith("\n") else b"\n")
+        )
     sys.exit(code)
 
 
