@@ -1,0 +1,19 @@
+{
+  "tools": {
+    "mcp_servers": {
+      "thuan_thien_web": {
+        "transport": "stdio",
+        "command": "node",
+        "args": ["/opt/my-website/mcp-server/index.js"],
+        "env": {
+          "DOTENV_PATH": "/opt/my-website/.env",
+          "SITE_ROOT": "/opt/my-website",
+          "NODE_ENV": "production"
+        },
+        "tool_prefix": "tt_",
+        "timeout_sec": 60,
+        "enabled": true
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "thuan-thien-mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server for Thuận Thiên website (goClaw stdio)",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.24.2"
+  }
+}

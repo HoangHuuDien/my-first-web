@@ -6,3 +6,4 @@ Thumbs.db
 data/Reading/*.pdf
 resend_config.txt
 brain.db
+mcp-server/node_modules/

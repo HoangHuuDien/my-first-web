@@ -183,4 +183,8 @@ module.exports = {
   runEmailSequence: runEmailSequence,
   totalSent: totalSent,
   loadSequenceTemplates: loadSequenceTemplates,
+  orderNeedsEmail2: orderNeedsEmail2,
+  orderNeedsEmail3: orderNeedsEmail3,
+  getOrderEmail: getOrderEmail,
+  loadPendingOrders: loadPendingOrders,
 };

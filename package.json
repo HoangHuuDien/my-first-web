@@ -8,7 +8,9 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "mcp": "npm start --prefix mcp-server",
+    "mcp:install": "npm install --prefix mcp-server"
   },
   "dependencies": {
     "resend": "^4.0.0"
