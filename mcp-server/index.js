@@ -13,6 +13,7 @@ async function main() {
   const { getDailyOpsBriefing } = await import("./tools/briefing.js");
   const { lookupOrder } = await import("./tools/lookup.js");
   const { editLandingPage } = await import("./tools/landing.js");
+  const { getBusinessAlerts } = await import("./tools/alerts.js");
 
   const server = new McpServer({
     name: "thuan-thien-web",
@@ -56,7 +57,7 @@ async function main() {
     {
       title: "Edit landing page",
       description:
-        "Sửa landing index.html hoặc giá PAYMENT_AMOUNT. confirm=false: preview; confirm=true: ghi file.",
+        "Sửa landing index.html hoặc giá PAYMENT_AMOUNT. confirm=false: preview; confirm=true: ghi file. section=quote + remove=true: xóa hẳn khối trích dẫn (không cần new_text).",
       inputSchema: z.object({
         instruction: z.string().optional(),
         section: z
@@ -72,6 +73,7 @@ async function main() {
           ])
           .optional(),
         new_text: z.string().optional(),
+        remove: z.boolean().optional().default(false),
         confirm: z.boolean().optional().default(false),
       }),
       annotations: {
@@ -79,6 +81,34 @@ async function main() {
       },
     },
     async (args) => editLandingPage(args, siteRoot)
+  );
+
+  server.registerTool(
+    "get_business_alerts",
+    {
+      title: "Business alerts",
+      description:
+        "Tín hiệu business cho agent chủ động nhắn Telegram: new_pending, new_paid (poll 15–30 phút + since), daily_summary (tổng kết 24h — cron 8h sáng).",
+      inputSchema: z.object({
+        since: z
+          .string()
+          .optional()
+          .describe("ISO datetime — chỉ sự kiện sau mốc này (nên dùng lần poll trước)"),
+        lookback_minutes: z
+          .number()
+          .optional()
+          .describe("Nếu không có since: cửa sổ phút cho new_pending/new_paid (mặc định 30)"),
+        lookback_hours: z
+          .number()
+          .optional()
+          .describe("Cho daily_summary (mặc định 24)"),
+        signals: z
+          .array(z.enum(["new_pending", "new_paid", "daily_summary"]))
+          .optional()
+          .describe("Mặc định cả 3; cron sáng chỉ [daily_summary]; poll chỉ [new_pending,new_paid]"),
+      }),
+    },
+    async (args) => getBusinessAlerts(args)
   );
 
   const transport = new StdioServerTransport();

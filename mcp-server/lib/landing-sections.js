@@ -114,6 +114,9 @@ const HTML_SECTIONS = {
     formatNewText(text) {
       return formatQuoteInner(text);
     },
+    remove(html) {
+      return replaceOnce(html, /\s*<div\s+class="quote"[^>]*>[\s\S]*?<\/div>\s*/i, "\n");
+    },
   },
   page_title: {
     label: "Thẻ <title>",

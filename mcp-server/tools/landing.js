@@ -39,7 +39,7 @@ function maybeRestartMywebsite() {
  * edit_landing_page — preview (confirm=false) hoặc ghi file (confirm=true).
  */
 export async function editLandingPage(args, siteRoot) {
-  const { instruction, section, new_text, confirm = false } = args;
+  const { instruction, section, new_text, confirm = false, remove = false } = args;
   const warnings = [];
 
   if (!section && !new_text && instruction) {
@@ -65,19 +65,6 @@ export async function editLandingPage(args, siteRoot) {
     );
   }
 
-  if (!new_text || !String(new_text).trim()) {
-    return toolResult(
-      {
-        ok: false,
-        error: "Cần new_text để preview/apply.",
-        section,
-        instruction: instruction || null,
-        warnings,
-      },
-      true
-    );
-  }
-
   const def = getHtmlSection(section);
   if (!def) {
     return toolResult(
@@ -90,6 +77,33 @@ export async function editLandingPage(args, siteRoot) {
     );
   }
 
+  const wantsRemove = remove === true;
+  if (!wantsRemove && (!new_text || !String(new_text).trim())) {
+    return toolResult(
+      {
+        ok: false,
+        error:
+          "Cần new_text để đổi nội dung, hoặc remove=true để xóa hẳn (hiện chỉ section quote).",
+        section,
+        instruction: instruction || null,
+        warnings,
+      },
+      true
+    );
+  }
+
+  if (wantsRemove && typeof def.remove !== "function") {
+    return toolResult(
+      {
+        ok: false,
+        error: "Section " + section + " chưa hỗ trợ xóa; chỉ dùng new_text để thay.",
+        section,
+        warnings,
+      },
+      true
+    );
+  }
+
   const indexPath = path.join(siteRoot, "index.html");
   if (!fs.existsSync(indexPath)) {
     return toolResult({ ok: false, error: "Không tìm thấy index.html" }, true);
@@ -97,18 +111,30 @@ export async function editLandingPage(args, siteRoot) {
 
   const html = fs.readFileSync(indexPath, "utf8");
   const beforeRaw = def.extract(html);
-  if (beforeRaw == null) {
+  if (beforeRaw == null && !wantsRemove) {
     return toolResult(
       { ok: false, error: "Không đọc được vùng " + section + " trong index.html" },
       true
     );
   }
 
-  const formatted = def.formatNewText(new_text);
-  const afterHtml = def.replace(html, formatted);
+  let formatted;
+  let afterHtml;
+  if (wantsRemove) {
+    formatted = "";
+    afterHtml = def.remove(html);
+  } else {
+    formatted = def.formatNewText(new_text);
+    afterHtml = def.replace(html, formatted);
+  }
   if (!afterHtml) {
     return toolResult(
-      { ok: false, error: "Không thay thế được vùng " + section },
+      {
+        ok: false,
+        error: wantsRemove
+          ? "Không xóa được vùng " + section + " (có thể đã bị xóa trước đó)"
+          : "Không thay thế được vùng " + section,
+      },
       true
     );
   }
@@ -118,9 +144,10 @@ export async function editLandingPage(args, siteRoot) {
     mode: confirm ? "applied" : "preview",
     section,
     label: def.label,
+    removed: wantsRemove,
     instruction: instruction || null,
-    before: stripHtmlTags(beforeRaw).slice(0, 500),
-    after: stripHtmlTags(formatted).slice(0, 500),
+    before: beforeRaw ? stripHtmlTags(beforeRaw).slice(0, 500) : null,
+    after: wantsRemove ? "(đã xóa khối HTML)" : stripHtmlTags(formatted).slice(0, 500),
     preview_url:
       (process.env.SITE_URL || "https://xembattu.thuanthienkinhdich.com").replace(
         /\/$/,
@@ -134,12 +161,30 @@ export async function editLandingPage(args, siteRoot) {
     return toolResult(preview);
   }
 
-  const backup = backupFile(indexPath);
-  fs.writeFileSync(indexPath, afterHtml, "utf8");
-  preview.applied = true;
-  preview.backup = backup;
-  preview.file = indexPath;
-  return toolResult(preview);
+  try {
+    const backup = backupFile(indexPath);
+    fs.writeFileSync(indexPath, afterHtml, "utf8");
+    preview.applied = true;
+    preview.backup = backup;
+    preview.file = indexPath;
+    return toolResult(preview);
+  } catch (err) {
+    const code = err && err.code;
+    const permissionHint =
+      code === "EACCES" || code === "EPERM"
+        ? "MCP (user goclaw uid 1000) không ghi được file. Trên VPS chạy: bash /opt/my-website/deploy/mcp-fix-permissions.sh"
+        : null;
+    return toolResult(
+      {
+        ok: false,
+        error: "Không ghi được index.html: " + (err && err.message ? err.message : String(err)),
+        code: code || null,
+        file: indexPath,
+        permission_hint: permissionHint,
+      },
+      true
+    );
+  }
 }
 
 function handlePriceEdit(siteRoot, newText, instruction, confirm, warnings) {

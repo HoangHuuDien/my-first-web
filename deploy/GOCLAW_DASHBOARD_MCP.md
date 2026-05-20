@@ -6,8 +6,12 @@ Sau khi chạy `bash deploy/mcp-install.sh` trên VPS.
 |--------|---------|
 | **Name / ID** | `thuan_thien_web` |
 | **Transport** | `stdio` |
-| **Command** | `/bin/sh` |
-| **Args** | `/opt/my-website/mcp-server/run-mcp.sh` |
+| **Command** | `node` |
+| **Args** | `/opt/my-website/mcp-server/index.js` |
+
+**Không dùng** `/bin/sh` — goClaw báo `command "sh" not in allowlist`.
+
+(Cách `run-mcp.sh` + `sh` chỉ để debug trên SSH, không dùng trong Dashboard.)
 
 Sau khi `git pull`, trên VPS:
 
@@ -35,6 +39,7 @@ Nếu `check-startup.sh` báo `fatal:` → gửi dòng lỗi đó. Nếu `SDK_OK
 - `tt_get_daily_ops_briefing`
 - `tt_lookup_order`
 - `tt_edit_landing_page`
+- `tt_get_business_alerts`
 
 Bật quyền MCP server này cho agent Telegram của bạn.
 
@@ -52,6 +57,33 @@ chgrp 1000 /opt/my-website/index.html && chmod 664 /opt/my-website/index.html
 ```
 
 Mount Docker phải **`rw`** (không `:ro`) nếu dùng tool `edit_landing_page` với `confirm=true`.
+
+### Lỗi phân quyền khi sửa landing (Telegram / `confirm=true`)
+
+Bot báo *lỗi phân quyền truy cập file* → MCP **đọc được** `index.html` nhưng **không ghi được** (user `goclaw` uid 1000 trong container).
+
+Trên VPS (SSH root):
+
+```bash
+cd /opt/my-website && git pull
+bash deploy/mcp-fix-permissions.sh
+```
+
+Hoặc tay:
+
+```bash
+chgrp 1000 /opt/my-website && chmod 775 /opt/my-website
+chgrp 1000 /opt/my-website/.env && chmod 640 /opt/my-website/.env
+chgrp 1000 /opt/my-website/index.html && chmod 664 /opt/my-website/index.html
+```
+
+Kiểm tra trong container:
+
+```bash
+docker exec -u goclaw goclaw-goclaw-1 sh -c 'test -w /opt/my-website/index.html && echo WRITABLE || echo NOT_WRITABLE'
+```
+
+Phải in `WRITABLE`. Sau đó nhắn bot đổi quote lại (preview rồi `confirm=true`).
 
 ### Lỗi `exec: "node"` khi Kiểm tra kết nối
 
