@@ -13,12 +13,7 @@
       "includeFiles": "data/order_confirmation_email.md"
     }
   },
-  "crons": [
-    {
-      "path": "/api/process-email-sequence",
-      "schedule": "0 7 * * *"
-    }
-  ],
+  "crons": [],
   "headers": [
     {
       "source": "/admin/(.*)",
